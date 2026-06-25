@@ -1,0 +1,19 @@
+# .NET / Visual Studio
+bin/
+obj/
+*.user
+.vs/
+*.suo
+
+# Build / publish
+publish/
+out/
+
+# Configs sensíveis (segredos não vão para o git)
+appsettings.*.Local.json
+secrets.json
+*.env
+
+# Banco local
+*.mdf
+*.ldf
