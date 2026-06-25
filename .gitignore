@@ -17,3 +17,7 @@ secrets.json
 # Banco local
 *.mdf
 *.ldf
+
+# Notas pessoais de aprendizado — NUNCA vão para o git (privadas do dono)
+docs/APRENDIZADO.md
+.private/
