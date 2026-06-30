@@ -1,3 +1,6 @@
+# Configs locais de ferramentas (uso pessoal — não versionar)
+.claude/
+
 # .NET / Visual Studio
 bin/
 obj/
@@ -18,6 +21,8 @@ secrets.json
 *.mdf
 *.ldf
 
-# Notas pessoais de aprendizado — NUNCA vão para o git (privadas do dono)
+# Notas pessoais de aprendizado — vivem em REPOSITÓRIO PRIVADO separado.
+# A pasta private/ tem o próprio .git e NUNCA entra no repo público.
+private/
 docs/APRENDIZADO.md
 .private/
