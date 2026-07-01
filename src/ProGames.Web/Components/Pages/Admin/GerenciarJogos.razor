@@ -1,0 +1,58 @@
+@page "/admin/jogos"
+@inject IJogoRepository JogoRepo
+
+<PageTitle>Admin — Jogos</PageTitle>
+
+<div class="pg-section-head">
+    <h1>Gerenciar <span class="gold">Jogos</span></h1>
+    <a class="pg-btn pg-btn-gold" href="admin/jogos/novo">+ Novo Jogo</a>
+</div>
+
+@if (jogos is null)
+{
+    <p class="pg-muted">Carregando...</p>
+}
+else if (jogos.Count == 0)
+{
+    <div class="pg-empty">Nenhum jogo cadastrado. <a href="admin/jogos/novo">Cadastrar o primeiro</a>.</div>
+}
+else
+{
+    <table class="pg-table">
+        <thead>
+            <tr>
+                <th>Título</th>
+                <th>Plataforma</th>
+                <th>Gênero</th>
+                <th>Preço</th>
+                <th>Estoque</th>
+                <th style="text-align:right;">Ações</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var j in jogos)
+            {
+                <tr>
+                    <td>@j.Titulo</td>
+                    <td>@j.Plataforma?.Nome</td>
+                    <td>@j.Genero?.Nome</td>
+                    <td>R$ @j.PrecoVenda.ToString("N2")</td>
+                    <td>@j.QuantidadeEstoque</td>
+                    <td style="text-align:right; white-space:nowrap;">
+                        <a class="pg-btn pg-btn-ghost" href="admin/jogos/editar/@j.Id">Editar</a>
+                        <a class="pg-btn pg-btn-outline" href="admin/jogos/excluir/@j.Id">Excluir</a>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    private List<Jogo>? jogos;
+
+    protected override async Task OnInitializedAsync()
+    {
+        jogos = await JogoRepo.ObterTodosAsync();
+    }
+}

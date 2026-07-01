@@ -5,6 +5,8 @@ using ProGames.Web.Components;
 using ProGames.Web.Components.Account;
 using ProGames.Web.Data;
 using ProGames.Infrastructure.Data;
+using ProGames.Infrastructure.Repositories;
+using ProGames.Domain.Interfaces;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -32,6 +34,10 @@ builder.Services.AddDatabaseDeveloperPageExceptionFilter();
 // Usa o MESMO banco (ProGamesDb) e a MESMA conexão do login.
 builder.Services.AddDbContext<ProGamesDbContext>(options =>
     options.UseSqlServer(connectionString));
+
+// Repositórios da loja (Injeção de Dependência).
+// Scoped = uma instância por requisição/página.
+builder.Services.AddScoped<IJogoRepository, JogoRepository>();
 
 builder.Services.AddIdentityCore<ApplicationUser>(options =>
     {

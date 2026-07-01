@@ -1,0 +1,45 @@
+@page "/admin/jogos/excluir/{Id:int}"
+@inject IJogoRepository JogoRepo
+@inject NavigationManager Nav
+
+<PageTitle>Excluir Jogo — Admin</PageTitle>
+
+<div class="pg-section-head">
+    <h1>Excluir <span class="gold">Jogo</span></h1>
+</div>
+
+@if (jogo is null)
+{
+    <div class="pg-empty">Jogo não encontrado. <a href="admin/jogos">Voltar</a></div>
+}
+else
+{
+    <div class="pg-card" style="max-width:440px; padding:1.5rem;">
+        <p>Tem certeza que deseja excluir <strong style="color:var(--pg-gold)">@jogo.Titulo</strong>?</p>
+        <p class="pg-muted" style="font-size:.85rem;">Esta ação não pode ser desfeita.</p>
+
+        <EditForm Model="this" FormName="excluir-jogo" OnValidSubmit="Confirmar">
+            <div style="display:flex; gap:.5rem; margin-top:1rem;">
+                <button class="pg-btn pg-btn-outline" type="submit">Sim, excluir</button>
+                <a class="pg-btn pg-btn-ghost" href="admin/jogos">Cancelar</a>
+            </div>
+        </EditForm>
+    </div>
+}
+
+@code {
+    [Parameter] public int Id { get; set; }
+
+    private Jogo? jogo;
+
+    protected override async Task OnInitializedAsync()
+    {
+        jogo = await JogoRepo.ObterPorIdAsync(Id);
+    }
+
+    private async Task Confirmar()
+    {
+        await JogoRepo.RemoverAsync(Id);
+        Nav.NavigateTo("admin/jogos");
+    }
+}

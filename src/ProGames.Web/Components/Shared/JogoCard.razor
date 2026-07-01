@@ -1,0 +1,32 @@
+@* Card reutilizável de um jogo (usado na Home e no Catálogo). *@
+
+<div class="pg-card">
+    <a href="jogo/@Jogo.Id" class="pg-card-cover">
+        @if (!string.IsNullOrEmpty(Jogo.UrlFoto))
+        {
+            <img src="@Jogo.UrlFoto" alt="@Jogo.Titulo" />
+        }
+        else
+        {
+            <span>🎮</span>
+        }
+        @if (Jogo.Plataforma is not null)
+        {
+            <span class="pg-badge">@Jogo.Plataforma.Nome</span>
+        }
+    </a>
+    <div class="pg-card-body">
+        <div class="pg-card-title">@Jogo.Titulo</div>
+        <div class="pg-card-price">R$ @Jogo.PrecoVenda.ToString("N2")</div>
+        <div class="pg-card-meta">Aluguel: R$ @Jogo.PrecoAluguelDia.ToString("N2") / dia</div>
+        <div class="pg-card-actions">
+            <a class="pg-btn pg-btn-gold" href="jogo/@Jogo.Id">Comprar</a>
+            <a class="pg-btn pg-btn-outline" href="jogo/@Jogo.Id">Alugar</a>
+        </div>
+    </div>
+</div>
+
+@code {
+    // O card recebe o jogo de fora (parâmetro obrigatório).
+    [Parameter, EditorRequired] public Jogo Jogo { get; set; } = default!;
+}

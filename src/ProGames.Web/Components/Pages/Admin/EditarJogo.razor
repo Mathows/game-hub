@@ -1,0 +1,174 @@
+@page "/admin/jogos/novo"
+@page "/admin/jogos/editar/{Id:int}"
+@inject IJogoRepository JogoRepo
+@inject NavigationManager Nav
+
+<PageTitle>@(Id is null ? "Novo Jogo" : "Editar Jogo") — Admin</PageTitle>
+
+<div class="pg-section-head">
+    <h1>@(Id is null ? "Novo" : "Editar") <span class="gold">Jogo</span></h1>
+    <a class="pg-btn pg-btn-ghost" href="admin/jogos">← Voltar</a>
+</div>
+
+<EditForm Model="Input" FormName="jogo-form" OnValidSubmit="Salvar" class="pg-form" style="max-width:620px;">
+    <DataAnnotationsValidator />
+
+    <label>Título</label>
+    <InputText class="pg-input" @bind-Value="Input.Titulo" />
+    <ValidationMessage For="() => Input.Titulo" />
+
+    <label>Descrição</label>
+    <InputTextArea class="pg-input" @bind-Value="Input.Descricao" rows="3" />
+
+    <label>Plataforma</label>
+    <InputSelect class="pg-input" @bind-Value="Input.PlataformaId">
+        <option value="0">Selecione...</option>
+        @foreach (var p in plataformas)
+        {
+            <option value="@p.Id">@p.Nome</option>
+        }
+    </InputSelect>
+    <ValidationMessage For="() => Input.PlataformaId" />
+
+    <label>Gênero</label>
+    <InputSelect class="pg-input" @bind-Value="Input.GeneroId">
+        <option value="0">Selecione...</option>
+        @foreach (var g in generos)
+        {
+            <option value="@g.Id">@g.Nome</option>
+        }
+    </InputSelect>
+    <ValidationMessage For="() => Input.GeneroId" />
+
+    <label>Condição</label>
+    <InputSelect class="pg-input" @bind-Value="Input.Condicao">
+        <option value="@CondicaoJogo.Novo">Novo</option>
+        <option value="@CondicaoJogo.Usado">Usado</option>
+    </InputSelect>
+
+    <label>Preço de venda (R$)</label>
+    <InputNumber class="pg-input" @bind-Value="Input.PrecoVenda" />
+
+    <label>Preço de aluguel por dia (R$)</label>
+    <InputNumber class="pg-input" @bind-Value="Input.PrecoAluguelDia" />
+
+    <label>Quantidade em estoque</label>
+    <InputNumber class="pg-input" @bind-Value="Input.QuantidadeEstoque" />
+
+    <label>URL da foto (opcional)</label>
+    <InputText class="pg-input" @bind-Value="Input.UrlFoto" />
+
+    <div style="margin-top:1.5rem; display:flex; gap:.5rem;">
+        <button class="pg-btn pg-btn-gold" type="submit">Salvar</button>
+        <a class="pg-btn pg-btn-ghost" href="admin/jogos">Cancelar</a>
+    </div>
+</EditForm>
+
+@code {
+    [Parameter] public int? Id { get; set; }
+
+    // HttpContext nos diz se a requisição é GET (abrir a tela) ou POST (enviar o form).
+    [CascadingParameter] public HttpContext? HttpContext { get; set; }
+
+    // O form envia/recebe estes dados. Em um POST, o Blazor já preenche este objeto sozinho.
+    [SupplyParameterFromForm] private JogoInput Input { get; set; } = new();
+
+    private List<Plataforma> plataformas = new();
+    private List<Genero> generos = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        plataformas = await JogoRepo.ObterPlataformasAsync();
+        generos = await JogoRepo.ObterGenerosAsync();
+
+        var ehPost = HttpContext?.Request.Method == "POST";
+
+        // Só carrega do banco quando é edição E estamos ABRINDO a tela (GET).
+        // Num POST, não sobrescrevemos o que o usuário digitou.
+        if (Id is not null && !ehPost)
+        {
+            var jogo = await JogoRepo.ObterPorIdAsync(Id.Value);
+            if (jogo is not null)
+            {
+                Input = new JogoInput
+                {
+                    Titulo = jogo.Titulo,
+                    Descricao = jogo.Descricao,
+                    PlataformaId = jogo.PlataformaId,
+                    GeneroId = jogo.GeneroId,
+                    Condicao = jogo.Condicao,
+                    PrecoVenda = jogo.PrecoVenda,
+                    PrecoAluguelDia = jogo.PrecoAluguelDia,
+                    QuantidadeEstoque = jogo.QuantidadeEstoque,
+                    UrlFoto = jogo.UrlFoto
+                };
+            }
+        }
+    }
+
+    private async Task Salvar()
+    {
+        if (Id is null)
+        {
+            // Cadastro novo
+            var jogo = new Jogo();
+            AplicarDados(jogo);
+            await JogoRepo.AdicionarAsync(jogo);
+        }
+        else
+        {
+            // Edição: busca o existente, atualiza os campos e salva
+            var jogo = await JogoRepo.ObterPorIdAsync(Id.Value);
+            if (jogo is null) { Nav.NavigateTo("admin/jogos"); return; }
+            AplicarDados(jogo);
+            await JogoRepo.AtualizarAsync(jogo);
+        }
+
+        Nav.NavigateTo("admin/jogos");
+    }
+
+    // Copia os dados do formulário para a entidade.
+    private void AplicarDados(Jogo jogo)
+    {
+        jogo.Titulo = Input.Titulo;
+        jogo.Descricao = Input.Descricao;
+        jogo.PlataformaId = Input.PlataformaId;
+        jogo.GeneroId = Input.GeneroId;
+        jogo.Condicao = Input.Condicao;
+        jogo.PrecoVenda = Input.PrecoVenda;
+        jogo.PrecoAluguelDia = Input.PrecoAluguelDia;
+        jogo.QuantidadeEstoque = Input.QuantidadeEstoque;
+        jogo.UrlFoto = Input.UrlFoto;
+        jogo.Disponivel = Input.QuantidadeEstoque > 0;
+    }
+
+    // "Modelo de formulário" com as regras de validação (DataAnnotations).
+    public class JogoInput
+    {
+        [Required(ErrorMessage = "Informe o título")]
+        [StringLength(200)]
+        public string Titulo { get; set; } = string.Empty;
+
+        [StringLength(1000)]
+        public string? Descricao { get; set; }
+
+        [Range(1, int.MaxValue, ErrorMessage = "Selecione a plataforma")]
+        public int PlataformaId { get; set; }
+
+        [Range(1, int.MaxValue, ErrorMessage = "Selecione o gênero")]
+        public int GeneroId { get; set; }
+
+        public CondicaoJogo Condicao { get; set; } = CondicaoJogo.Usado;
+
+        [Range(0, 999999, ErrorMessage = "Preço inválido")]
+        public decimal PrecoVenda { get; set; }
+
+        [Range(0, 999999, ErrorMessage = "Preço inválido")]
+        public decimal PrecoAluguelDia { get; set; }
+
+        [Range(0, 100000, ErrorMessage = "Estoque inválido")]
+        public int QuantidadeEstoque { get; set; }
+
+        public string? UrlFoto { get; set; }
+    }
+}

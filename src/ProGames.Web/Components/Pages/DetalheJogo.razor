@@ -1,0 +1,57 @@
+@page "/jogo/{Id:int}"
+@inject IJogoRepository JogoRepo
+
+<PageTitle>@(jogo?.Titulo ?? "Jogo") — Pro Games</PageTitle>
+
+@if (jogo is null)
+{
+    <div class="pg-empty">Jogo não encontrado. <a href="catalogo">Voltar ao catálogo</a></div>
+}
+else
+{
+    <a class="pg-muted" href="catalogo">← Voltar ao catálogo</a>
+
+    <div class="pg-detail">
+        <div class="pg-detail-cover">
+            @if (!string.IsNullOrEmpty(jogo.UrlFoto))
+            {
+                <img src="@jogo.UrlFoto" alt="@jogo.Titulo" />
+            }
+            else
+            {
+                <span>🎮</span>
+            }
+        </div>
+
+        <div>
+            <h1>@jogo.Titulo</h1>
+            <p class="pg-muted">
+                @jogo.Plataforma?.Nome • @jogo.Genero?.Nome • @jogo.Condicao
+            </p>
+
+            <p>@(string.IsNullOrWhiteSpace(jogo.Descricao) ? "Sem descrição cadastrada." : jogo.Descricao)</p>
+
+            <div class="pg-price-lg">R$ @jogo.PrecoVenda.ToString("N2")</div>
+            <p class="pg-muted">
+                Aluguel: R$ @jogo.PrecoAluguelDia.ToString("N2") / dia • Em estoque: @jogo.QuantidadeEstoque
+            </p>
+
+            @* Comprar/Alugar serão ativados na Fase 4 (pedidos + pagamento). *@
+            <div class="pg-hero-actions" style="justify-content:flex-start;">
+                <button class="pg-btn pg-btn-gold" disabled>Comprar (em breve)</button>
+                <button class="pg-btn pg-btn-outline" disabled>Alugar (em breve)</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public int Id { get; set; }
+
+    private Jogo? jogo;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        jogo = await JogoRepo.ObterPorIdAsync(Id);
+    }
+}

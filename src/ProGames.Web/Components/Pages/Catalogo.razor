@@ -1,0 +1,67 @@
+@page "/catalogo"
+@inject IJogoRepository JogoRepo
+
+<PageTitle>Catálogo — Pro Games</PageTitle>
+
+<div class="pg-section-head">
+    <h1>Catálogo de <span class="gold">Jogos</span></h1>
+</div>
+
+@* Busca por título — formulário GET simples: envia ?busca=... na URL *@
+<form method="get" class="pg-search">
+    <input class="pg-input" name="busca" value="@Busca" placeholder="Buscar por título..." />
+    @if (PlataformaId.HasValue)
+    {
+        <input type="hidden" name="plataforma" value="@PlataformaId" />
+    }
+    <button class="pg-btn pg-btn-gold" type="submit">Buscar</button>
+</form>
+
+@* Filtros por plataforma — cada chip é um link que muda a URL *@
+<div class="pg-filters">
+    <a class="pg-chip @(PlataformaId is null ? "active" : "")" href="catalogo">Todas</a>
+    @if (plataformas is not null)
+    {
+        @foreach (var p in plataformas)
+        {
+            <a class="pg-chip @(PlataformaId == p.Id ? "active" : "")" href="catalogo?plataforma=@p.Id">@p.Nome</a>
+        }
+    }
+</div>
+
+@if (jogos is null)
+{
+    <p class="pg-muted">Carregando...</p>
+}
+else if (jogos.Count == 0)
+{
+    <div class="pg-empty">Nenhum jogo encontrado com esse filtro.</div>
+}
+else
+{
+    <div class="pg-grid">
+        @foreach (var jogo in jogos)
+        {
+            <JogoCard Jogo="jogo" />
+        }
+    </div>
+}
+
+@code {
+    // Estes valores vêm da URL (?plataforma=2&busca=texto).
+    [SupplyParameterFromQuery(Name = "plataforma")]
+    public int? PlataformaId { get; set; }
+
+    [SupplyParameterFromQuery(Name = "busca")]
+    public string? Busca { get; set; }
+
+    private List<Jogo>? jogos;
+    private List<Plataforma>? plataformas;
+
+    // OnParametersSetAsync roda toda vez que a URL muda (novo filtro/busca).
+    protected override async Task OnParametersSetAsync()
+    {
+        plataformas = await JogoRepo.ObterPlataformasAsync();
+        jogos = await JogoRepo.ObterTodosAsync(PlataformaId, Busca);
+    }
+}
