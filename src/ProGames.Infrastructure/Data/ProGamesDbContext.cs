@@ -1,0 +1,106 @@
+using Microsoft.EntityFrameworkCore;
+using ProGames.Domain.Entities;
+using ProGames.Domain.Enums;
+
+namespace ProGames.Infrastructure.Data;
+
+/// <summary>
+/// Contexto de dados da LOJA (separado do contexto de login/Identity).
+/// Representa o banco: cada DbSet vira uma tabela; este contexto é quem
+/// lê e grava os dados de jogos, clientes, pedidos, aluguéis e trocas.
+/// </summary>
+public class ProGamesDbContext : DbContext
+{
+    // O construtor recebe as "opções" (ex.: qual banco usar) via Injeção de Dependência.
+    public ProGamesDbContext(DbContextOptions<ProGamesDbContext> options)
+        : base(options)
+    {
+    }
+
+    // Cada DbSet<T> representa uma TABELA no banco.
+    public DbSet<Jogo> Jogos => Set<Jogo>();
+    public DbSet<Plataforma> Plataformas => Set<Plataforma>();
+    public DbSet<Genero> Generos => Set<Genero>();
+    public DbSet<Cliente> Clientes => Set<Cliente>();
+    public DbSet<Pedido> Pedidos => Set<Pedido>();
+    public DbSet<ItemPedido> ItensPedido => Set<ItemPedido>();
+    public DbSet<Aluguel> Alugueis => Set<Aluguel>();
+    public DbSet<Troca> Trocas => Set<Troca>();
+
+    // Aqui refinamos o mapeamento (tamanhos, precisão, relacionamentos e dados iniciais).
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
+    {
+        base.OnModelCreating(modelBuilder);
+
+        // ---- Tamanhos de texto (sem isto, o EF cria nvarchar(MAX), que é ruim) ----
+        modelBuilder.Entity<Plataforma>().Property(p => p.Nome).HasMaxLength(50).IsRequired();
+        modelBuilder.Entity<Genero>().Property(g => g.Nome).HasMaxLength(50).IsRequired();
+        modelBuilder.Entity<Jogo>().Property(j => j.Titulo).HasMaxLength(200).IsRequired();
+        modelBuilder.Entity<Jogo>().Property(j => j.Descricao).HasMaxLength(1000);
+        modelBuilder.Entity<Cliente>().Property(c => c.Nome).HasMaxLength(150).IsRequired();
+
+        // ---- Precisão dos valores em dinheiro: decimal(10,2) = até 99.999.999,99 ----
+        modelBuilder.Entity<Jogo>().Property(j => j.PrecoVenda).HasPrecision(10, 2);
+        modelBuilder.Entity<Jogo>().Property(j => j.PrecoAluguelDia).HasPrecision(10, 2);
+        modelBuilder.Entity<Pedido>().Property(p => p.ValorTotal).HasPrecision(10, 2);
+        modelBuilder.Entity<ItemPedido>().Property(i => i.PrecoUnitario).HasPrecision(10, 2);
+        modelBuilder.Entity<Aluguel>().Property(a => a.ValorTotal).HasPrecision(10, 2);
+
+        // ---- Troca aponta para 1 cliente e 2 jogos: precisamos configurar à mão ----
+        // DeleteBehavior.Restrict = NÃO deixa apagar um jogo/cliente que esteja numa troca
+        // (evita exclusões em cascata perigosas e o erro de "múltiplos caminhos de cascata" do SQL Server).
+        modelBuilder.Entity<Troca>()
+            .HasOne(t => t.ClienteOfertante)
+            .WithMany(c => c.Trocas)
+            .HasForeignKey(t => t.ClienteOfertanteId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<Troca>()
+            .HasOne(t => t.JogoOferecido)
+            .WithMany()
+            .HasForeignKey(t => t.JogoOferecidoId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<Troca>()
+            .HasOne(t => t.JogoDesejado)
+            .WithMany()
+            .HasForeignKey(t => t.JogoDesejadoId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        // Aluguel e ItemPedido também apontam para Jogo: mesma proteção (não apagar jogo em uso).
+        modelBuilder.Entity<Aluguel>()
+            .HasOne(a => a.Jogo)
+            .WithMany()
+            .HasForeignKey(a => a.JogoId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<ItemPedido>()
+            .HasOne(i => i.Jogo)
+            .WithMany()
+            .HasForeignKey(i => i.JogoId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        // ---- Dados iniciais (seed): já nascem no banco quando aplicamos a migração ----
+        modelBuilder.Entity<Plataforma>().HasData(
+            new Plataforma { Id = 1, Nome = "PC" },
+            new Plataforma { Id = 2, Nome = "PlayStation" },
+            new Plataforma { Id = 3, Nome = "Xbox" },
+            new Plataforma { Id = 4, Nome = "Nintendo Switch" }
+        );
+
+        modelBuilder.Entity<Genero>().HasData(
+            new Genero { Id = 1, Nome = "Ação" },
+            new Genero { Id = 2, Nome = "RPG" },
+            new Genero { Id = 3, Nome = "Esporte" },
+            new Genero { Id = 4, Nome = "Aventura" }
+        );
+
+        // Data fixa no seed (o EF exige valor constante aqui, não pode ser DateTime.Now).
+        var dataSeed = new DateTime(2026, 6, 24);
+        modelBuilder.Entity<Jogo>().HasData(
+            new Jogo { Id = 1, Titulo = "God of War", PlataformaId = 2, GeneroId = 1, Condicao = CondicaoJogo.Usado, PrecoVenda = 150m, PrecoAluguelDia = 15m, QuantidadeEstoque = 3, Disponivel = true, DataCadastro = dataSeed },
+            new Jogo { Id = 2, Titulo = "The Witcher 3", PlataformaId = 1, GeneroId = 2, Condicao = CondicaoJogo.Usado, PrecoVenda = 90m, PrecoAluguelDia = 10m, QuantidadeEstoque = 5, Disponivel = true, DataCadastro = dataSeed },
+            new Jogo { Id = 3, Titulo = "EA Sports FC 24", PlataformaId = 3, GeneroId = 3, Condicao = CondicaoJogo.Novo, PrecoVenda = 250m, PrecoAluguelDia = 20m, QuantidadeEstoque = 2, Disponivel = true, DataCadastro = dataSeed }
+        );
+    }
+}

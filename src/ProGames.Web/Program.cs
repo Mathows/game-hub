@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using ProGames.Web.Components;
 using ProGames.Web.Components.Account;
 using ProGames.Web.Data;
+using ProGames.Infrastructure.Data;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -26,6 +27,11 @@ var connectionString = builder.Configuration.GetConnectionString("DefaultConnect
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlServer(connectionString));
 builder.Services.AddDatabaseDeveloperPageExceptionFilter();
+
+// Contexto da LOJA (jogos, clientes, pedidos, aluguéis, trocas).
+// Usa o MESMO banco (ProGamesDb) e a MESMA conexão do login.
+builder.Services.AddDbContext<ProGamesDbContext>(options =>
+    options.UseSqlServer(connectionString));
 
 builder.Services.AddIdentityCore<ApplicationUser>(options =>
     {
