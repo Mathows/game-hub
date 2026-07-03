@@ -8,6 +8,7 @@ using GameHub.Infrastructure.Data;
 using GameHub.Infrastructure.Repositories;
 using GameHub.Infrastructure.Services;
 using GameHub.Domain.Interfaces;
+using GameHub.Domain.Services;
 using GameHub.Web.Services;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -48,6 +49,12 @@ builder.Services.AddScoped<CarrinhoService>();
 // Serviço que fecha a compra (cria Pedido + baixa estoque numa transação).
 // Scoped porque usa o GameHubDbContext.
 builder.Services.AddScoped<IPedidoService, PedidoService>();
+
+// Aluguel: o serviço é Scoped (usa o DbContext); a calculadora é Transient
+// (só faz conta, sem estado). Aqui os 3 tempos de vida convivem no projeto:
+// Singleton (IEmailSender) · Scoped (repos/serviços/carrinho) · Transient (calculadora).
+builder.Services.AddTransient<CalculadoraAluguel>();
+builder.Services.AddScoped<IAluguelService, AluguelService>();
 
 builder.Services.AddIdentityCore<ApplicationUser>(options =>
     {
