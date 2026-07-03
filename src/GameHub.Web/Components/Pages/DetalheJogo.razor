@@ -1,0 +1,102 @@
+@page "/jogo/{Id:int}"
+@rendermode InteractiveServer
+@inject IJogoRepository JogoRepo
+@inject CarrinhoService Carrinho
+
+@* @rendermode InteractiveServer: esta página deixa de ser HTML estático e passa a rodar num
+   CIRCUITO (conexão SignalR). É isso que permite os botões reagirem ao clique em C#.
+   Sem esse modo, um @onclick não teria como chamar o servidor. *@
+
+<PageTitle>@(jogo?.Titulo ?? "Jogo") — GameHub</PageTitle>
+
+@if (jogo is null)
+{
+    <div class="pg-empty">Jogo não encontrado. <a href="catalogo">Voltar ao catálogo</a></div>
+}
+else
+{
+    <a class="pg-muted" href="catalogo">← Voltar ao catálogo</a>
+
+    <div class="pg-detail">
+        <div class="pg-detail-cover">
+            @if (!string.IsNullOrEmpty(jogo.UrlFoto))
+            {
+                <img src="@jogo.UrlFoto" alt="@jogo.Titulo" />
+            }
+            else
+            {
+                <span>🎮</span>
+            }
+        </div>
+
+        <div>
+            <h1>@jogo.Titulo</h1>
+            <p class="pg-muted">
+                @jogo.Plataforma?.Nome • @jogo.Genero?.Nome • @jogo.Condicao
+            </p>
+
+            <p>@(string.IsNullOrWhiteSpace(jogo.Descricao) ? "Sem descrição cadastrada." : jogo.Descricao)</p>
+
+            <div class="pg-price-lg">R$ @jogo.PrecoVenda.ToString("N2")</div>
+            <p class="pg-muted">
+                Aluguel: R$ @jogo.PrecoAluguelDia.ToString("N2") / dia • Em estoque: @jogo.QuantidadeEstoque
+            </p>
+
+            @if (jogo.QuantidadeEstoque > 0)
+            {
+                <div class="pg-buy-box">
+                    @* COMPRAR *@
+                    <button class="pg-btn pg-btn-gold" @onclick="Comprar">
+                        🛒 Adicionar para comprar
+                    </button>
+
+                    @* ALUGAR: escolhe quantos dias; o valor é preço/dia × dias *@
+                    <div class="pg-rent-row">
+                        <label class="pg-muted">Alugar por</label>
+                        <input class="pg-input pg-input-sm" type="number" min="1" max="30" @bind="diasAluguel" />
+                        <span class="pg-muted">dia(s) — R$ @((jogo.PrecoAluguelDia * diasAluguel).ToString("N2"))</span>
+                        <button class="pg-btn pg-btn-outline" @onclick="Alugar">Adicionar aluguel</button>
+                    </div>
+                </div>
+
+                @if (mensagem is not null)
+                {
+                    <div class="pg-toast">
+                        ✅ @mensagem — <a href="carrinho">ver carrinho</a>
+                    </div>
+                }
+            }
+            else
+            {
+                <p class="pg-empty">Sem estoque no momento.</p>
+            }
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public int Id { get; set; }
+
+    private Jogo? jogo;
+    private int diasAluguel = 3;      // valor inicial do campo de dias
+    private string? mensagem;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        jogo = await JogoRepo.ObterPorIdAsync(Id);
+    }
+
+    private void Comprar()
+    {
+        if (jogo is null) return;
+        Carrinho.AdicionarCompra(jogo);
+        mensagem = $"\"{jogo.Titulo}\" adicionado para compra";
+    }
+
+    private void Alugar()
+    {
+        if (jogo is null) return;
+        Carrinho.AdicionarAluguel(jogo, diasAluguel);
+        mensagem = $"\"{jogo.Titulo}\" adicionado para aluguel ({diasAluguel} dia(s))";
+    }
+}

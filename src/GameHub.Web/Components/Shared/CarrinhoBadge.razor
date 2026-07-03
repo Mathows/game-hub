@@ -1,0 +1,30 @@
+@implements IDisposable
+@inject CarrinhoService Carrinho
+
+@* Selo do carrinho no cabeçalho. Recebe por DI o MESMO CarrinhoService que a página de
+   detalhe recebe — porque os dois estão no mesmo circuito (mesmo escopo Scoped).
+   Quando a página adiciona um item, o serviço dispara OnChange e este selo se redesenha. *@
+
+<a class="pg-nav-link pg-cart-link" href="carrinho">
+    🛒 @Carrinho.TotalItens
+</a>
+
+@code {
+    protected override void OnInitialized()
+    {
+        // "Ouve" as mudanças do carrinho para atualizar o número em tempo real.
+        Carrinho.OnChange += AoMudar;
+    }
+
+    private void AoMudar()
+    {
+        // InvokeAsync garante que o redesenho rode na thread certa do circuito.
+        InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        // Sempre cancelar a inscrição no evento ao destruir o componente (evita vazamento).
+        Carrinho.OnChange -= AoMudar;
+    }
+}

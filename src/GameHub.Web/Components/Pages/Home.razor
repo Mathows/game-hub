@@ -1,0 +1,46 @@
+@page "/"
+@inject IJogoRepository JogoRepo
+
+<PageTitle>GameHub — Seu hub completo para jogos</PageTitle>
+
+<section class="pg-hero">
+    <p>GameHub | O futuro dos jogos</p>
+    <h1>SEU HUB COMPLETO PARA JOGOS:<br /><span class="gold">COMPRE, ALUGUE E TROQUE AGORA!</span></h1>
+    <div class="pg-hero-actions">
+        <a class="pg-btn pg-btn-gold" href="catalogo">Explorar Jogos</a>
+        <a class="pg-btn pg-btn-outline" href="catalogo">Trocar Jogos</a>
+    </div>
+</section>
+
+<div class="pg-section-head">
+    <h2>Jogos em <span class="gold">Destaque</span></h2>
+    <a class="pg-muted" href="catalogo">Ver tudo →</a>
+</div>
+
+@if (destaques is null)
+{
+    <p class="pg-muted">Carregando...</p>
+}
+else if (destaques.Count == 0)
+{
+    <div class="pg-empty">Nenhum jogo cadastrado ainda. Vá em <a href="admin/jogos">Admin</a> para cadastrar.</div>
+}
+else
+{
+    <div class="pg-grid">
+        @foreach (var jogo in destaques)
+        {
+            <JogoCard Jogo="jogo" />
+        }
+    </div>
+}
+
+@code {
+    private List<Jogo>? destaques;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Pede ao repositório (via DI) os jogos em destaque.
+        destaques = await JogoRepo.ObterDestaquesAsync(8);
+    }
+}

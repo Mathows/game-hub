@@ -1,0 +1,55 @@
+@page "/carrinho"
+@rendermode InteractiveServer
+@inject CarrinhoService Cart
+
+<PageTitle>Carrinho — GameHub</PageTitle>
+
+<div class="pg-section-head">
+    <h1>Meu <span class="gold">Carrinho</span></h1>
+</div>
+
+@if (Cart.Itens.Count == 0)
+{
+    <div class="pg-empty">
+        Seu carrinho está vazio. <a href="catalogo">Ir ao catálogo</a>
+    </div>
+}
+else
+{
+    <table class="pg-table">
+        <thead>
+            <tr>
+                <th>Jogo</th>
+                <th>Tipo</th>
+                <th>Qtd / Dias</th>
+                <th>Preço unit.</th>
+                <th>Subtotal</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var item in Cart.Itens)
+            {
+                <tr>
+                    <td>@item.Titulo</td>
+                    <td>@(item.Tipo == TipoAquisicao.Compra ? "Compra" : "Aluguel")</td>
+                    <td>@(item.Tipo == TipoAquisicao.Compra ? $"{item.Quantidade}x" : $"{item.DiasAluguel} dia(s)")</td>
+                    <td>R$ @item.PrecoUnitario.ToString("N2")</td>
+                    <td>R$ @item.Subtotal.ToString("N2")</td>
+                    <td style="text-align:right;">
+                        <button class="pg-btn pg-btn-ghost" @onclick="() => Cart.Remover(item)">Remover</button>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+
+    <div class="pg-cart-footer">
+        <button class="pg-btn pg-btn-ghost" @onclick="Cart.Limpar">Esvaziar carrinho</button>
+        <div class="pg-cart-total">
+            Total: <span class="gold">R$ @Cart.ValorTotal.ToString("N2")</span>
+        </div>
+        @* Finalizar será ligado no Passo 2 (criar Pedido + baixar estoque + pagamento). *@
+        <button class="pg-btn pg-btn-gold" disabled>Finalizar (Passo 2)</button>
+    </div>
+}
