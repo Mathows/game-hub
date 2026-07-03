@@ -6,6 +6,7 @@ using GameHub.Web.Components.Account;
 using GameHub.Web.Data;
 using GameHub.Infrastructure.Data;
 using GameHub.Infrastructure.Repositories;
+using GameHub.Infrastructure.Services;
 using GameHub.Domain.Interfaces;
 using GameHub.Web.Services;
 
@@ -43,6 +44,10 @@ builder.Services.AddScoped<IJogoRepository, JogoRepository>();
 // Carrinho de compras: Scoped = um carrinho por usuário (por circuito SignalR).
 // Se fosse Singleton, todos os usuários dividiriam o mesmo carrinho.
 builder.Services.AddScoped<CarrinhoService>();
+
+// Serviço que fecha a compra (cria Pedido + baixa estoque numa transação).
+// Scoped porque usa o GameHubDbContext.
+builder.Services.AddScoped<IPedidoService, PedidoService>();
 
 builder.Services.AddIdentityCore<ApplicationUser>(options =>
     {

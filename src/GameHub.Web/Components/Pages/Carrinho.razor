@@ -1,12 +1,23 @@
 @page "/carrinho"
 @rendermode InteractiveServer
+@using System.Security.Claims
 @inject CarrinhoService Cart
+@inject IPedidoService PedidoService
 
 <PageTitle>Carrinho — GameHub</PageTitle>
 
 <div class="pg-section-head">
     <h1>Meu <span class="gold">Carrinho</span></h1>
 </div>
+
+@if (sucesso is not null)
+{
+    <div class="pg-toast">✅ @sucesso</div>
+}
+@if (erro is not null)
+{
+    <div class="pg-empty" style="border-color:#b32121;color:#ff8a8a;">⚠️ @erro</div>
+}
 
 @if (Cart.Itens.Count == 0)
 {
@@ -44,12 +55,83 @@ else
         </tbody>
     </table>
 
+    @if (TemAluguel)
+    {
+        <p class="pg-muted">Itens de <b>aluguel</b> serão processados no Passo 3. Por enquanto, o "Finalizar" fecha só os itens de <b>compra</b>.</p>
+    }
+
     <div class="pg-cart-footer">
-        <button class="pg-btn pg-btn-ghost" @onclick="Cart.Limpar">Esvaziar carrinho</button>
+        <button class="pg-btn pg-btn-ghost" @onclick="Cart.Limpar" disabled="@processando">Esvaziar carrinho</button>
         <div class="pg-cart-total">
-            Total: <span class="gold">R$ @Cart.ValorTotal.ToString("N2")</span>
+            Compra: <span class="gold">R$ @TotalCompra.ToString("N2")</span>
         </div>
-        @* Finalizar será ligado no Passo 2 (criar Pedido + baixar estoque + pagamento). *@
-        <button class="pg-btn pg-btn-gold" disabled>Finalizar (Passo 2)</button>
+        <button class="pg-btn pg-btn-gold" @onclick="Finalizar" disabled="@(processando || !TemCompra)">
+            @(processando ? "Processando..." : "Finalizar compra")
+        </button>
     </div>
+}
+
+@code {
+    // Recebe o estado de autenticação (quem está logado) via cascata.
+    [CascadingParameter] private Task<AuthenticationState>? AuthState { get; set; }
+
+    private string? sucesso;
+    private string? erro;
+    private bool processando;
+
+    // Atalhos de leitura sobre o carrinho.
+    private bool TemCompra => Cart.Itens.Any(i => i.Tipo == TipoAquisicao.Compra);
+    private bool TemAluguel => Cart.Itens.Any(i => i.Tipo == TipoAquisicao.Aluguel);
+    private decimal TotalCompra => Cart.Itens.Where(i => i.Tipo == TipoAquisicao.Compra).Sum(i => i.Subtotal);
+
+    private async Task Finalizar()
+    {
+        sucesso = null;
+        erro = null;
+
+        // 1) Precisa estar logado (o pedido pertence a um cliente).
+        var user = AuthState is null ? null : (await AuthState).User;
+        if (user?.Identity?.IsAuthenticated != true)
+        {
+            erro = "Entre na sua conta para finalizar a compra.";
+            return;
+        }
+
+        // 2) Identifica o usuário do login (Id do AspNetUsers) e um nome.
+        var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        var nome = user.Identity?.Name ?? "Cliente";
+        if (string.IsNullOrEmpty(userId))
+        {
+            erro = "Não consegui identificar sua conta. Tente entrar novamente.";
+            return;
+        }
+
+        // 3) Monta a lista de itens de COMPRA (aluguel fica para o Passo 3).
+        var itensCompra = Cart.Itens
+            .Where(i => i.Tipo == TipoAquisicao.Compra)
+            .Select(i => new ItemCompra(i.JogoId, i.Quantidade))
+            .ToList();
+
+        processando = true;
+        try
+        {
+            // 4) Chama o serviço (que faz tudo dentro de uma transação).
+            var pedido = await PedidoService.FinalizarCompraAsync(userId, nome, itensCompra);
+
+            // 5) Deu certo: remove do carrinho os itens de compra já pedidos.
+            foreach (var item in Cart.Itens.Where(i => i.Tipo == TipoAquisicao.Compra).ToList())
+                Cart.Remover(item);
+
+            sucesso = $"Pedido #{pedido.Id} criado (R$ {pedido.ValorTotal:N2}) — aguardando pagamento.";
+        }
+        catch (Exception ex)
+        {
+            // Se o serviço lançou (ex.: estoque insuficiente), a transação já fez Rollback.
+            erro = ex.Message;
+        }
+        finally
+        {
+            processando = false;
+        }
+    }
 }
