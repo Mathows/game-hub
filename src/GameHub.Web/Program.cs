@@ -108,4 +108,10 @@ app.MapAdditionalIdentityEndpoints();
 // Endpoint do webhook de pagamento (POST /webhooks/pagamento).
 app.MapWebhookEndpoints();
 
+// Endpoints EDUCATIVOS (só em desenvolvimento) para entender cache do DbContext e DI.
+if (app.Environment.IsDevelopment())
+{
+    app.MapDemoEndpoints();
+}
+
 app.Run();

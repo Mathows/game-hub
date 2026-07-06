@@ -90,6 +90,7 @@ public class PedidoService : IPedidoService
 
     public async Task<List<Pedido>> ObterPorUsuarioAsync(string applicationUserId)
         => await _context.Pedidos
+            .AsNoTracking()                                   // leitura pura: não rastreia (traz sempre dados FRESCOS do banco)
             .Include(p => p.Itens).ThenInclude(i => i.Jogo)   // traz os itens e o jogo de cada um
             .Where(p => p.Cliente!.ApplicationUserId == applicationUserId)
             .OrderByDescending(p => p.DataPedido)
