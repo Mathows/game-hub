@@ -87,4 +87,11 @@ public class PedidoService : IPedidoService
             throw;                               // repassa o erro para a tela mostrar a mensagem
         }
     }
+
+    public async Task<List<Pedido>> ObterPorUsuarioAsync(string applicationUserId)
+        => await _context.Pedidos
+            .Include(p => p.Itens).ThenInclude(i => i.Jogo)   // traz os itens e o jogo de cada um
+            .Where(p => p.Cliente!.ApplicationUserId == applicationUserId)
+            .OrderByDescending(p => p.DataPedido)
+            .ToListAsync();
 }

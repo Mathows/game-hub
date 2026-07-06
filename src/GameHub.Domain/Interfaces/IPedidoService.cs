@@ -13,4 +13,7 @@ public record ItemCompra(int JogoId, int Quantidade);
 public interface IPedidoService
 {
     Task<Pedido> FinalizarCompraAsync(string applicationUserId, string nomeCliente, IReadOnlyList<ItemCompra> itens);
+
+    /// <summary>Lista os pedidos de um usuário (mais recentes primeiro), com itens e jogos.</summary>
+    Task<List<Pedido>> ObterPorUsuarioAsync(string applicationUserId);
 }

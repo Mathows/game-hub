@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using GameHub.Web.Components;
 using GameHub.Web.Components.Account;
 using GameHub.Web.Data;
+using GameHub.Web.Endpoints;
 using GameHub.Infrastructure.Data;
 using GameHub.Infrastructure.Repositories;
 using GameHub.Infrastructure.Services;
@@ -56,6 +57,18 @@ builder.Services.AddScoped<IPedidoService, PedidoService>();
 builder.Services.AddTransient<CalculadoraAluguel>();
 builder.Services.AddScoped<IAluguelService, AluguelService>();
 
+// Pagamento: confirma o pedido quando o webhook chega (Scoped, usa o DbContext).
+builder.Services.AddScoped<IPagamentoService, PagamentoService>();
+
+// HttpClient usado SÓ pelo simulador de pagamento (DEV) para chamar o nosso próprio
+// webhook. O callback custom de certificado aceita o certificado de desenvolvimento
+// do localhost (não usar isso em produção).
+builder.Services.AddHttpClient("self")
+    .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
+    {
+        ServerCertificateCustomValidationCallback = (_, _, _, _) => true
+    });
+
 builder.Services.AddIdentityCore<ApplicationUser>(options =>
     {
         options.SignIn.RequireConfirmedAccount = true;
@@ -91,5 +104,8 @@ app.MapRazorComponents<App>()
 
 // Add additional endpoints required by the Identity /Account Razor components.
 app.MapAdditionalIdentityEndpoints();
+
+// Endpoint do webhook de pagamento (POST /webhooks/pagamento).
+app.MapWebhookEndpoints();
 
 app.Run();

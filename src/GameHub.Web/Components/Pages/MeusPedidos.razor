@@ -1,0 +1,147 @@
+@page "/meus-pedidos"
+@rendermode InteractiveServer
+@using System.Security.Claims
+@using System.Text
+@using System.Text.Json
+@using GameHub.Domain.Enums
+@using GameHub.Infrastructure.Payments
+@inject IPedidoService PedidoService
+@inject IHttpClientFactory HttpFactory
+@inject NavigationManager Nav
+@inject IConfiguration Config
+
+<PageTitle>Meus Pedidos — GameHub</PageTitle>
+
+<div class="pg-section-head">
+    <h1>Meus <span class="gold">Pedidos</span></h1>
+</div>
+
+@if (mensagem is not null)
+{
+    <div class="pg-toast">@mensagem</div>
+}
+
+@if (pedidos is null)
+{
+    <p class="pg-muted">Carregando...</p>
+}
+else if (pedidos.Count == 0)
+{
+    <div class="pg-empty">Você ainda não tem pedidos. <a href="catalogo">Ir ao catálogo</a></div>
+}
+else
+{
+    <table class="pg-table">
+        <thead>
+            <tr>
+                <th>Pedido</th>
+                <th>Data</th>
+                <th>Itens</th>
+                <th>Total</th>
+                <th>Status</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var p in pedidos)
+            {
+                <tr>
+                    <td>#@p.Id</td>
+                    <td>@p.DataPedido.ToString("dd/MM/yyyy HH:mm")</td>
+                    <td>@p.Itens.Sum(i => i.Quantidade) item(ns)</td>
+                    <td>R$ @p.ValorTotal.ToString("N2")</td>
+                    <td>
+                        <span class="gold">@p.Status</span>
+                    </td>
+                    <td style="text-align:right;">
+                        @if (p.Status == StatusPedido.Pendente)
+                        {
+                            <button class="pg-btn pg-btn-gold" @onclick="() => SimularPagamento(p.Id)" disabled="@processando">
+                                Simular pagamento
+                            </button>
+                        }
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+    <p class="pg-muted" style="margin-top:.75rem;">
+        "Simular pagamento" gera uma assinatura válida (formato Mercado Pago) e chama o nosso
+        <code>POST /webhooks/pagamento</code> — como se o gateway tivesse avisado que o pagamento foi aprovado.
+    </p>
+}
+
+@code {
+    [CascadingParameter] private Task<AuthenticationState>? AuthState { get; set; }
+
+    private List<Pedido>? pedidos;
+    private string? userId;
+    private string? mensagem;
+    private bool processando;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var user = AuthState is null ? null : (await AuthState).User;
+        userId = user?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        await CarregarAsync();
+    }
+
+    private async Task CarregarAsync()
+    {
+        if (string.IsNullOrEmpty(userId))
+        {
+            pedidos = new();
+            return;
+        }
+        pedidos = await PedidoService.ObterPorUsuarioAsync(userId);
+    }
+
+    private async Task SimularPagamento(int pedidoId)
+    {
+        processando = true;
+        mensagem = null;
+        try
+        {
+            var segredo = Config["MercadoPago:WebhookSecret"] ?? string.Empty;
+
+            // Dados que o Mercado Pago enviaria no cabeçalho x-signature.
+            var dataId = $"SIM-{pedidoId}";
+            var ts = DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString();
+            var requestId = Guid.NewGuid().ToString();
+
+            // Assina EXATAMENTE como o MP assinaria (manifesto + HMAC com o segredo).
+            var manifesto = MercadoPagoAssinatura.MontarManifesto(dataId, requestId, ts);
+            var v1 = MercadoPagoAssinatura.GerarHash(segredo, manifesto);
+
+            // Monta e envia o POST para o nosso próprio webhook.
+            var http = HttpFactory.CreateClient("self");
+            var url = $"{Nav.BaseUri}webhooks/pagamento?data.id={dataId}";
+            using var req = new HttpRequestMessage(HttpMethod.Post, url);
+            req.Headers.Add("x-signature", $"ts={ts},v1={v1}");
+            req.Headers.Add("x-request-id", requestId);
+
+            var corpo = JsonSerializer.Serialize(new
+            {
+                type = "payment",
+                action = "payment.updated",
+                data = new { id = dataId, pedidoId, status = "approved" }
+            });
+            req.Content = new StringContent(corpo, Encoding.UTF8, "application/json");
+
+            var resp = await http.SendAsync(req);
+            mensagem = resp.IsSuccessStatusCode
+                ? $"✅ Webhook aceito — pedido #{pedidoId} confirmado."
+                : $"⚠️ Webhook recusou (HTTP {(int)resp.StatusCode}).";
+
+            await CarregarAsync();   // recarrega para mostrar o novo status
+        }
+        catch (Exception ex)
+        {
+            mensagem = "⚠️ Erro ao simular: " + ex.Message;
+        }
+        finally
+        {
+            processando = false;
+        }
+    }
+}
