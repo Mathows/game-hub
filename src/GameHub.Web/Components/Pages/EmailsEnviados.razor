@@ -1,0 +1,30 @@
+@page "/emails"
+@inject IEmailService Email
+
+<PageTitle>Caixa de saída (simulada) — GameHub</PageTitle>
+
+<div class="pg-section-head">
+    <h1>E-mails <span class="gold">enviados</span> <small class="pg-muted">(simulação)</small></h1>
+</div>
+
+<p class="pg-muted">
+    Estes e-mails não são enviados de verdade — ficam guardados em memória (caixa de saída Singleton).
+    Na Fase 6 ligamos o Gmail SMTP e eles passam a sair de verdade.
+</p>
+
+@if (Email.Enviados.Count == 0)
+{
+    <div class="pg-empty">Nenhum e-mail ainda. Confirme um pagamento em <a href="meus-pedidos">Meus Pedidos</a>.</div>
+}
+else
+{
+    @foreach (var e in Email.Enviados)
+    {
+        <div class="pg-card" style="padding:1rem; margin-bottom:1rem;">
+            <div class="pg-muted" style="font-size:.8rem;">@e.Quando.ToString("dd/MM/yyyy HH:mm:ss")</div>
+            <div><b>Para:</b> @e.Para</div>
+            <div><b>Assunto:</b> <span class="gold">@e.Assunto</span></div>
+            <pre style="white-space:pre-wrap; margin-top:.5rem; font-family:inherit;">@e.Corpo</pre>
+        </div>
+    }
+}

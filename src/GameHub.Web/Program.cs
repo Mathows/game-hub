@@ -80,6 +80,10 @@ builder.Services.AddIdentityCore<ApplicationUser>(options =>
 
 builder.Services.AddSingleton<IEmailSender<ApplicationUser>, IdentityNoOpEmailSender>();
 
+// Nosso serviço de e-mail (confirmação de pedido). Singleton: caixa de saída única do app.
+// Hoje é simulado (guarda em memória); na Fase 6 vira Gmail SMTP, sem mudar a interface.
+builder.Services.AddSingleton<IEmailService, EmailSimuladoService>();
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
