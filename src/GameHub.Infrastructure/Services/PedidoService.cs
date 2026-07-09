@@ -95,4 +95,11 @@ public class PedidoService : IPedidoService
             .Where(p => p.Cliente!.ApplicationUserId == applicationUserId)
             .OrderByDescending(p => p.DataPedido)
             .ToListAsync();
+
+    public async Task<Pedido?> ObterPorIdAsync(int pedidoId, string applicationUserId)
+        => await _context.Pedidos
+            .AsNoTracking()
+            .Include(p => p.Cliente)
+            .Include(p => p.Itens).ThenInclude(i => i.Jogo)
+            .FirstOrDefaultAsync(p => p.Id == pedidoId && p.Cliente!.ApplicationUserId == applicationUserId);
 }

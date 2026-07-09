@@ -60,6 +60,10 @@ else
                                 Simular pagamento
                             </button>
                         }
+                        else if (p.Status == StatusPedido.Pago)
+                        {
+                            <a class="pg-btn pg-btn-outline" href="nota/@p.Id">Ver nota fiscal</a>
+                        }
                     </td>
                 </tr>
             }
