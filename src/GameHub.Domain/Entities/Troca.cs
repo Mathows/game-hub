@@ -14,6 +14,10 @@ public class Troca
     public int ClienteOfertanteId { get; set; }
     public Cliente? ClienteOfertante { get; set; }
 
+    // Cliente que ACEITOU a troca (fica nulo até alguém aceitar) — é a "outra ponta".
+    public int? ClienteReceptorId { get; set; }
+    public Cliente? ClienteReceptor { get; set; }
+
     // Jogo que ele OFERECE
     public int JogoOferecidoId { get; set; }
     public Jogo? JogoOferecido { get; set; }

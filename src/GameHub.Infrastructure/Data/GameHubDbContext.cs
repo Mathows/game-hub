@@ -55,6 +55,13 @@ public class GameHubDbContext : DbContext
             .HasForeignKey(t => t.ClienteOfertanteId)
             .OnDelete(DeleteBehavior.Restrict);
 
+        // Receptor: FK opcional (int?) — sem navegação de volta no Cliente (WithMany() vazio).
+        modelBuilder.Entity<Troca>()
+            .HasOne(t => t.ClienteReceptor)
+            .WithMany()
+            .HasForeignKey(t => t.ClienteReceptorId)
+            .OnDelete(DeleteBehavior.Restrict);
+
         modelBuilder.Entity<Troca>()
             .HasOne(t => t.JogoOferecido)
             .WithMany()

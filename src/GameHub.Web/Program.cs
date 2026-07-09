@@ -60,6 +60,9 @@ builder.Services.AddScoped<IAluguelService, AluguelService>();
 // Nota fiscal simulada: só faz formatação (sem estado) → Transient, como a calculadora.
 builder.Services.AddTransient<NotaFiscalService>();
 
+// Trocas (Fase 5). Por enquanto com EF Core (Scoped); depois comparamos com NHibernate.
+builder.Services.AddScoped<ITrocaService, TrocaService>();
+
 // Pagamento: confirma o pedido quando o webhook chega (Scoped, usa o DbContext).
 builder.Services.AddScoped<IPagamentoService, PagamentoService>();
 

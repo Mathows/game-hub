@@ -1,0 +1,87 @@
+@page "/trocas/nova"
+@rendermode InteractiveServer
+@using System.Security.Claims
+@inject IJogoRepository JogoRepo
+@inject ITrocaService TrocaService
+@inject NavigationManager Nav
+
+<PageTitle>Propor troca — GameHub</PageTitle>
+
+<div class="pg-section-head"><h1>Propor <span class="gold">Troca</span></h1></div>
+
+@if (erro is not null)
+{
+    <div class="pg-empty" style="border-color:#b32121;color:#ff8a8a;">⚠️ @erro</div>
+}
+
+@if (jogos is null)
+{
+    <p class="pg-muted">Carregando...</p>
+}
+else
+{
+    <div class="pg-form" style="max-width:520px;">
+        <label>Jogo que EU ofereço</label>
+        <select class="pg-input" @bind="jogoOferecidoId">
+            <option value="0">— selecione —</option>
+            @foreach (var j in jogos)
+            {
+                <option value="@j.Id">@j.Titulo</option>
+            }
+        </select>
+
+        <label>Jogo que EU desejo</label>
+        <select class="pg-input" @bind="jogoDesejadoId">
+            <option value="0">— selecione —</option>
+            @foreach (var j in jogos)
+            {
+                <option value="@j.Id">@j.Titulo</option>
+            }
+        </select>
+
+        <div style="margin-top:1.25rem; display:flex; gap:.5rem;">
+            <button class="pg-btn pg-btn-gold" @onclick="Propor" disabled="@enviando">
+                @(enviando ? "Enviando..." : "Propor troca")
+            </button>
+            <a class="pg-btn pg-btn-ghost" href="trocas">Voltar</a>
+        </div>
+    </div>
+}
+
+@code {
+    [CascadingParameter] private Task<AuthenticationState>? AuthState { get; set; }
+
+    private List<Jogo>? jogos;
+    private int jogoOferecidoId;
+    private int jogoDesejadoId;
+    private string? erro;
+    private bool enviando;
+
+    protected override async Task OnInitializedAsync()
+    {
+        jogos = await JogoRepo.ObterTodosAsync();
+    }
+
+    private async Task Propor()
+    {
+        erro = null;
+        var user = AuthState is null ? null : (await AuthState).User;
+        var userId = user?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        var nome = user?.Identity?.Name ?? "Cliente";
+
+        if (string.IsNullOrEmpty(userId)) { erro = "Entre na sua conta para propor uma troca."; return; }
+        if (jogoOferecidoId == 0 || jogoDesejadoId == 0) { erro = "Selecione os dois jogos."; return; }
+
+        enviando = true;
+        try
+        {
+            await TrocaService.PropoAsync(userId, nome, jogoOferecidoId, jogoDesejadoId);
+            Nav.NavigateTo("trocas");
+        }
+        catch (Exception ex)
+        {
+            erro = ex.Message;
+            enviando = false;
+        }
+    }
+}
