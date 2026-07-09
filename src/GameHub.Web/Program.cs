@@ -57,6 +57,9 @@ builder.Services.AddScoped<IPedidoService, PedidoService>();
 builder.Services.AddTransient<CalculadoraAluguel>();
 builder.Services.AddScoped<IAluguelService, AluguelService>();
 
+// Nota fiscal simulada: só faz formatação (sem estado) → Transient, como a calculadora.
+builder.Services.AddTransient<NotaFiscalService>();
+
 // Pagamento: confirma o pedido quando o webhook chega (Scoped, usa o DbContext).
 builder.Services.AddScoped<IPagamentoService, PagamentoService>();
 

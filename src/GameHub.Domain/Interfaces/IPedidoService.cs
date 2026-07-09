@@ -16,4 +16,7 @@ public interface IPedidoService
 
     /// <summary>Lista os pedidos de um usuário (mais recentes primeiro), com itens e jogos.</summary>
     Task<List<Pedido>> ObterPorUsuarioAsync(string applicationUserId);
+
+    /// <summary>Um pedido específico do usuário (ou null se não existir/não for dele), com itens e jogos.</summary>
+    Task<Pedido?> ObterPorIdAsync(int pedidoId, string applicationUserId);
 }

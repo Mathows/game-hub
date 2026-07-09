@@ -1,0 +1,102 @@
+@page "/nota/{PedidoId:int}"
+@using System.Security.Claims
+@using GameHub.Domain.Enums
+@using GameHub.Domain.Services
+@inject IPedidoService PedidoService
+@inject NotaFiscalService NotaService
+
+<PageTitle>Nota Fiscal — Pedido #@PedidoId</PageTitle>
+
+@if (carregando)
+{
+    <p class="pg-muted">Carregando...</p>
+}
+else if (nota is null)
+{
+    <div class="pg-empty">@erro <a href="meus-pedidos">Voltar aos pedidos</a></div>
+}
+else
+{
+    <a class="pg-muted" href="meus-pedidos">← Voltar aos pedidos</a>
+
+    <div class="pg-nota">
+        <div class="pg-nota-head">
+            <div>
+                <div class="pg-nota-titulo">NOTA FISCAL <span class="gold">(SIMULAÇÃO)</span></div>
+                <div class="pg-muted">GameHub — documento sem validade fiscal</div>
+            </div>
+            <button class="pg-btn pg-btn-outline" onclick="window.print()">Imprimir</button>
+        </div>
+
+        <div class="pg-nota-grid">
+            <div><span class="pg-muted">Número:</span> @nota.Numero</div>
+            <div><span class="pg-muted">Série:</span> @nota.Serie</div>
+            <div><span class="pg-muted">Emissão:</span> @nota.DataEmissao.ToString("dd/MM/yyyy HH:mm")</div>
+            <div><span class="pg-muted">Cliente:</span> @nota.NomeCliente</div>
+        </div>
+
+        <div class="pg-nota-chave">
+            <span class="pg-muted">Chave de acesso:</span> <code>@ChaveFormatada</code>
+        </div>
+
+        <table class="pg-table" style="margin-top:1rem;">
+            <thead>
+                <tr><th>Descrição</th><th>Qtd</th><th>Valor unit.</th><th>Total</th></tr>
+            </thead>
+            <tbody>
+                @foreach (var item in nota.Itens)
+                {
+                    <tr>
+                        <td>@item.Descricao</td>
+                        <td>@item.Quantidade</td>
+                        <td>R$ @item.ValorUnitario.ToString("N2")</td>
+                        <td>R$ @item.ValorTotal.ToString("N2")</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+
+        <div class="pg-nota-total">TOTAL: <span class="gold">R$ @nota.ValorTotal.ToString("N2")</span></div>
+    </div>
+}
+
+@code {
+    [Parameter] public int PedidoId { get; set; }
+    [CascadingParameter] private Task<AuthenticationState>? AuthState { get; set; }
+
+    private NotaFiscalSimulada? nota;
+    private string? erro;
+    private bool carregando = true;
+
+    private string ChaveFormatada =>
+        nota is null ? "" : string.Join(" ", Enumerable.Range(0, nota.ChaveAcesso.Length / 4)
+            .Select(i => nota.ChaveAcesso.Substring(i * 4, 4)));
+
+    protected override async Task OnInitializedAsync()
+    {
+        var user = AuthState is null ? null : (await AuthState).User;
+        var userId = user?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (string.IsNullOrEmpty(userId))
+        {
+            erro = "Entre na sua conta para ver a nota.";
+            carregando = false;
+            return;
+        }
+
+        var pedido = await PedidoService.ObterPorIdAsync(PedidoId, userId);
+        if (pedido is null)
+        {
+            erro = "Pedido não encontrado.";
+        }
+        else if (pedido.Status != StatusPedido.Pago)
+        {
+            // Regra de negócio: só emite nota depois do pagamento confirmado.
+            erro = "A nota fiscal só é emitida após o pagamento ser confirmado.";
+        }
+        else
+        {
+            nota = NotaService.GerarParaPedido(pedido);
+        }
+        carregando = false;
+    }
+}
