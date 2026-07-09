@@ -166,3 +166,9 @@ h1, h2, h3 { color: var(--pg-text); }
 .pg-chat-autor { font-size: .72rem; color: var(--pg-gold); margin-bottom: .15rem; }
 .pg-chat-input { display: flex; gap: .5rem; }
 .pg-chat-input .pg-input { flex: 1; }
+
+/* ---------- Notificações em tempo real (SignalR) ---------- */
+.pg-notifs { position: fixed; top: 72px; right: 1rem; z-index: 1000; display: flex; flex-direction: column; gap: .5rem; max-width: 320px; }
+.pg-notif { background: var(--pg-panel-2); border: 1px solid var(--pg-gold); color: var(--pg-text); border-radius: 10px; padding: .6rem .8rem; display: flex; gap: .5rem; align-items: flex-start; justify-content: space-between; box-shadow: 0 4px 12px rgba(0,0,0,.45); font-size: .85rem; }
+.pg-notif-x { background: none; border: none; color: var(--pg-muted); cursor: pointer; font-size: .9rem; line-height: 1; }
+.pg-notif-x:hover { color: var(--pg-gold); }

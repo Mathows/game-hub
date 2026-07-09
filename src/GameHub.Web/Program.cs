@@ -140,6 +140,9 @@ app.MapWebhookEndpoints();
 // Hub do chat de trocas (SignalR).
 app.MapHub<TrocaChatHub>("/hubs/troca-chat");
 
+// Hub de notificações em tempo real (SignalR).
+app.MapHub<NotificacaoHub>("/hubs/notificacao");
+
 // Endpoints EDUCATIVOS (só em desenvolvimento) para entender cache do DbContext e DI.
 if (app.Environment.IsDevelopment())
 {

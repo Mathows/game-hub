@@ -1,8 +1,11 @@
 @page "/trocas/nova"
 @rendermode InteractiveServer
 @using System.Security.Claims
+@using Microsoft.AspNetCore.SignalR
+@using GameHub.Web.Hubs
 @inject IJogoRepository JogoRepo
 @inject ITrocaService TrocaService
+@inject IHubContext<NotificacaoHub> Notif
 @inject NavigationManager Nav
 
 <PageTitle>Propor troca — GameHub</PageTitle>
@@ -76,6 +79,10 @@ else
         try
         {
             await TrocaService.PropoAsync(userId, nome, jogoOferecidoId, jogoDesejadoId);
+
+            // Broadcast em tempo real para TODOS: apareceu uma troca nova.
+            await Notif.Clients.All.SendAsync("Notificacao", "🔄 Nova troca disponível! Veja em Trocar.");
+
             Nav.NavigateTo("trocas");
         }
         catch (Exception ex)

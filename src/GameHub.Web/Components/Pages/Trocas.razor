@@ -2,7 +2,10 @@
 @rendermode InteractiveServer
 @using System.Security.Claims
 @using GameHub.Domain.Enums
+@using Microsoft.AspNetCore.SignalR
+@using GameHub.Web.Hubs
 @inject ITrocaService TrocaService
+@inject IHubContext<NotificacaoHub> Notif
 
 <PageTitle>Trocas — GameHub</PageTitle>
 
@@ -106,8 +109,17 @@ else
     private async Task Aceitar(int id)
     {
         ocupado = true;
+        var troca = abertas?.FirstOrDefault(x => x.Id == id);
         var nome = (AuthState is null ? null : (await AuthState).User.Identity?.Name) ?? "Cliente";
         var ok = await TrocaService.AceitarAsync(id, userId!, nome);
+
+        if (ok && troca?.ClienteOfertante?.ApplicationUserId is string ofertanteId)
+        {
+            // Notifica em TEMPO REAL só o ofertante (grupo dele).
+            await Notif.Clients.Group(NotificacaoHub.GrupoDoUsuario(ofertanteId))
+                .SendAsync("Notificacao", $"Sua troca #{id} foi aceita por {nome}! 🎉");
+        }
+
         msg = ok ? "Troca aceita! 🎉" : "Não foi possível aceitar essa troca.";
         await CarregarAsync();
         ocupado = false;
