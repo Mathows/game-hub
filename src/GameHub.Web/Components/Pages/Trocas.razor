@@ -1,0 +1,136 @@
+@page "/trocas"
+@rendermode InteractiveServer
+@using System.Security.Claims
+@using GameHub.Domain.Enums
+@using Microsoft.AspNetCore.SignalR
+@using GameHub.Web.Hubs
+@inject ITrocaService TrocaService
+@inject IHubContext<NotificacaoHub> Notif
+
+<PageTitle>Trocas — GameHub</PageTitle>
+
+<div class="pg-section-head">
+    <h1>Trocar <span class="gold">Jogos</span></h1>
+    <a class="pg-btn pg-btn-gold" href="trocas/nova">+ Propor troca</a>
+</div>
+
+@if (msg is not null)
+{
+    <div class="pg-toast">@msg</div>
+}
+
+<h2>Abertas <span class="pg-muted" style="font-size:1rem;">(para você aceitar)</span></h2>
+@if (abertas is null)
+{
+    <p class="pg-muted">Carregando...</p>
+}
+else if (abertas.Count == 0)
+{
+    <div class="pg-empty">Nenhuma troca aberta de outros clientes no momento.</div>
+}
+else
+{
+    <table class="pg-table">
+        <thead><tr><th>De</th><th>Oferece</th><th>Quer</th><th></th></tr></thead>
+        <tbody>
+            @foreach (var t in abertas)
+            {
+                <tr>
+                    <td>@t.ClienteOfertante?.Nome</td>
+                    <td>@t.JogoOferecido?.Titulo</td>
+                    <td>@t.JogoDesejado?.Titulo</td>
+                    <td style="text-align:right;">
+                        <button class="pg-btn pg-btn-gold" @onclick="() => Aceitar(t.Id)" disabled="@ocupado">Aceitar</button>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+<h2 style="margin-top:2rem;">Minhas trocas</h2>
+@if (minhas is null)
+{
+}
+else if (minhas.Count == 0)
+{
+    <div class="pg-empty">Você ainda não participou de trocas.</div>
+}
+else
+{
+    <table class="pg-table">
+        <thead><tr><th>Oferece</th><th>Quer</th><th>Status</th><th></th></tr></thead>
+        <tbody>
+            @foreach (var t in minhas)
+            {
+                <tr>
+                    <td>@t.JogoOferecido?.Titulo</td>
+                    <td>@t.JogoDesejado?.Titulo</td>
+                    <td><span class="gold">@t.Status</span></td>
+                    <td style="text-align:right;">
+                        @if (t.Status == StatusTroca.Proposta && t.ClienteOfertante?.ApplicationUserId == userId)
+                        {
+                            <button class="pg-btn pg-btn-ghost" @onclick="() => Recusar(t.Id)" disabled="@ocupado">Cancelar</button>
+                        }
+                        @if (t.Status == StatusTroca.Aceita)
+                        {
+                            <a class="pg-btn pg-btn-outline" href="trocas/@t.Id/chat">💬 Chat</a>
+                        }
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    [CascadingParameter] private Task<AuthenticationState>? AuthState { get; set; }
+
+    private List<Troca>? abertas;
+    private List<Troca>? minhas;
+    private string? userId;
+    private string? msg;
+    private bool ocupado;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var user = AuthState is null ? null : (await AuthState).User;
+        userId = user?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        await CarregarAsync();
+    }
+
+    private async Task CarregarAsync()
+    {
+        if (string.IsNullOrEmpty(userId)) { abertas = new(); minhas = new(); return; }
+        abertas = await TrocaService.ObterAbertasAsync(userId);
+        minhas = await TrocaService.ObterMinhasAsync(userId);
+    }
+
+    private async Task Aceitar(int id)
+    {
+        ocupado = true;
+        var troca = abertas?.FirstOrDefault(x => x.Id == id);
+        var nome = (AuthState is null ? null : (await AuthState).User.Identity?.Name) ?? "Cliente";
+        var ok = await TrocaService.AceitarAsync(id, userId!, nome);
+
+        if (ok && troca?.ClienteOfertante?.ApplicationUserId is string ofertanteId)
+        {
+            // Notifica em TEMPO REAL só o ofertante (grupo dele).
+            await Notif.Clients.Group(NotificacaoHub.GrupoDoUsuario(ofertanteId))
+                .SendAsync("Notificacao", $"Sua troca #{id} foi aceita por {nome}! 🎉");
+        }
+
+        msg = ok ? "Troca aceita! 🎉" : "Não foi possível aceitar essa troca.";
+        await CarregarAsync();
+        ocupado = false;
+    }
+
+    private async Task Recusar(int id)
+    {
+        ocupado = true;
+        var ok = await TrocaService.RecusarAsync(id, userId!);
+        msg = ok ? "Proposta cancelada." : "Não foi possível cancelar.";
+        await CarregarAsync();
+        ocupado = false;
+    }
+}

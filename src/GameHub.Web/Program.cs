@@ -8,15 +8,22 @@ using GameHub.Web.Endpoints;
 using GameHub.Infrastructure.Data;
 using GameHub.Infrastructure.Repositories;
 using GameHub.Infrastructure.Services;
+using GameHub.Infrastructure.NHib;
 using GameHub.Domain.Interfaces;
 using GameHub.Domain.Services;
 using GameHub.Web.Services;
+using GameHub.Web.Hubs;
+using NHibernate;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
+
+// SignalR para o nosso Hub de chat (Fase 5) + a "caixa" de mensagens em memória (Singleton).
+builder.Services.AddSignalR();
+builder.Services.AddSingleton<ChatTrocaStore>();
 
 builder.Services.AddCascadingAuthenticationState();
 builder.Services.AddScoped<IdentityRedirectManager>();
@@ -59,6 +66,21 @@ builder.Services.AddScoped<IAluguelService, AluguelService>();
 
 // Nota fiscal simulada: só faz formatação (sem estado) → Transient, como a calculadora.
 builder.Services.AddTransient<NotaFiscalService>();
+
+// Trocas (Fase 5): INTERRUPTOR de ORM. "Trocas:Orm" no appsettings escolhe a implementação.
+// As telas usam SEMPRE a mesma interface ITrocaService — só a "cozinha" de dados muda.
+var ormTrocas = builder.Configuration["Trocas:Orm"] ?? "EF";
+if (ormTrocas.Equals("NHibernate", StringComparison.OrdinalIgnoreCase))
+{
+    // NHibernate: SessionFactory = Singleton (cara de criar); ISession = Scoped (como o DbContext).
+    builder.Services.AddSingleton<ISessionFactory>(_ => NHibernateConfig.CriarSessionFactory(connectionString));
+    builder.Services.AddScoped(sp => sp.GetRequiredService<ISessionFactory>().OpenSession());
+    builder.Services.AddScoped<ITrocaService, TrocaServiceNHibernate>();
+}
+else
+{
+    builder.Services.AddScoped<ITrocaService, TrocaService>();   // EF Core (padrão)
+}
 
 // Pagamento: confirma o pedido quando o webhook chega (Scoped, usa o DbContext).
 builder.Services.AddScoped<IPagamentoService, PagamentoService>();
@@ -114,6 +136,12 @@ app.MapAdditionalIdentityEndpoints();
 
 // Endpoint do webhook de pagamento (POST /webhooks/pagamento).
 app.MapWebhookEndpoints();
+
+// Hub do chat de trocas (SignalR).
+app.MapHub<TrocaChatHub>("/hubs/troca-chat");
+
+// Hub de notificações em tempo real (SignalR).
+app.MapHub<NotificacaoHub>("/hubs/notificacao");
 
 // Endpoints EDUCATIVOS (só em desenvolvimento) para entender cache do DbContext e DI.
 if (app.Environment.IsDevelopment())

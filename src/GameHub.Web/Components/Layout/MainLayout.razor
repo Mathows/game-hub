@@ -13,7 +13,7 @@
                 <NavLink class="pg-nav-link" href="" Match="NavLinkMatch.All">Home</NavLink>
                 <NavLink class="pg-nav-link" href="catalogo">Comprar</NavLink>
                 <NavLink class="pg-nav-link" href="catalogo">Alugar</NavLink>
-                <NavLink class="pg-nav-link" href="catalogo">Trocar</NavLink>
+                <NavLink class="pg-nav-link" href="trocas">Trocar</NavLink>
                 <NavLink class="pg-nav-link" href="admin/jogos">Admin</NavLink>
             </nav>
 
@@ -22,6 +22,7 @@
                 <CarrinhoBadge @rendermode="InteractiveServer" />
                 <AuthorizeView>
                     <Authorized>
+                        <NotificacaoListener @rendermode="InteractiveServer" />
                         <a class="pg-nav-link" href="meus-pedidos">Meus Pedidos</a>
                         <a class="pg-nav-link" href="Account/Manage">@context.User.Identity?.Name</a>
                     </Authorized>
