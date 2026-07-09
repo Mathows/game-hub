@@ -8,9 +8,11 @@ using GameHub.Web.Endpoints;
 using GameHub.Infrastructure.Data;
 using GameHub.Infrastructure.Repositories;
 using GameHub.Infrastructure.Services;
+using GameHub.Infrastructure.NHib;
 using GameHub.Domain.Interfaces;
 using GameHub.Domain.Services;
 using GameHub.Web.Services;
+using NHibernate;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -60,8 +62,20 @@ builder.Services.AddScoped<IAluguelService, AluguelService>();
 // Nota fiscal simulada: só faz formatação (sem estado) → Transient, como a calculadora.
 builder.Services.AddTransient<NotaFiscalService>();
 
-// Trocas (Fase 5). Por enquanto com EF Core (Scoped); depois comparamos com NHibernate.
-builder.Services.AddScoped<ITrocaService, TrocaService>();
+// Trocas (Fase 5): INTERRUPTOR de ORM. "Trocas:Orm" no appsettings escolhe a implementação.
+// As telas usam SEMPRE a mesma interface ITrocaService — só a "cozinha" de dados muda.
+var ormTrocas = builder.Configuration["Trocas:Orm"] ?? "EF";
+if (ormTrocas.Equals("NHibernate", StringComparison.OrdinalIgnoreCase))
+{
+    // NHibernate: SessionFactory = Singleton (cara de criar); ISession = Scoped (como o DbContext).
+    builder.Services.AddSingleton<ISessionFactory>(_ => NHibernateConfig.CriarSessionFactory(connectionString));
+    builder.Services.AddScoped(sp => sp.GetRequiredService<ISessionFactory>().OpenSession());
+    builder.Services.AddScoped<ITrocaService, TrocaServiceNHibernate>();
+}
+else
+{
+    builder.Services.AddScoped<ITrocaService, TrocaService>();   // EF Core (padrão)
+}
 
 // Pagamento: confirma o pedido quando o webhook chega (Scoped, usa o DbContext).
 builder.Services.AddScoped<IPagamentoService, PagamentoService>();
