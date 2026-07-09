@@ -1,0 +1,95 @@
+@page "/trocas/{TrocaId:int}/chat"
+@rendermode InteractiveServer
+@using System.Security.Claims
+@using Microsoft.AspNetCore.SignalR.Client
+@using GameHub.Web.Services
+@inject NavigationManager Nav
+@implements IAsyncDisposable
+
+<PageTitle>Chat da troca #@TrocaId</PageTitle>
+
+<div class="pg-section-head">
+    <h1>💬 Chat da <span class="gold">Troca #@TrocaId</span></h1>
+    <a class="pg-btn pg-btn-ghost" href="trocas">Voltar</a>
+</div>
+
+<p class="pg-muted">Conversando como <b>@autor</b> · @(conectado ? "conectado ✅" : "conectando...")</p>
+
+<div class="pg-chat">
+    @if (mensagens.Count == 0)
+    {
+        <p class="pg-muted">Nenhuma mensagem ainda. Diga oi! 👋</p>
+    }
+    else
+    {
+        @foreach (var m in mensagens)
+        {
+            <div class="pg-chat-msg @(m.Autor == autor ? "mine" : "")">
+                <div class="pg-chat-autor">@m.Autor <span class="pg-muted">· @m.Quando.ToString("HH:mm")</span></div>
+                <div>@m.Texto</div>
+            </div>
+        }
+    }
+</div>
+
+<div class="pg-chat-input">
+    <input class="pg-input" @bind="texto" @bind:event="oninput" @onkeydown="AoTeclar"
+           placeholder="Escreva uma mensagem..." disabled="@(!conectado)" />
+    <button class="pg-btn pg-btn-gold" @onclick="Enviar" disabled="@(!conectado)">Enviar</button>
+</div>
+
+@code {
+    [Parameter] public int TrocaId { get; set; }
+    [CascadingParameter] private Task<AuthenticationState>? AuthState { get; set; }
+
+    private HubConnection? hub;
+    private List<MensagemChat> mensagens = new();
+    private string autor = "Anônimo";
+    private string texto = "";
+    private bool conectado;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var user = AuthState is null ? null : (await AuthState).User;
+        autor = user?.Identity?.Name ?? "Anônimo";
+
+        // Cria a conexão SignalR do componente (cliente) para o nosso Hub (servidor).
+        hub = new HubConnectionBuilder()
+            .WithUrl(Nav.ToAbsoluteUri("/hubs/troca-chat"))
+            .WithAutomaticReconnect()
+            .Build();
+
+        // Servidor → cliente: mensagem nova e histórico ao entrar.
+        hub.On<MensagemChat>("ReceberMensagem", msg =>
+        {
+            mensagens.Add(msg);
+            return InvokeAsync(StateHasChanged);
+        });
+        hub.On<List<MensagemChat>>("Historico", hist =>
+        {
+            mensagens = hist;
+            return InvokeAsync(StateHasChanged);
+        });
+
+        await hub.StartAsync();
+        await hub.InvokeAsync("EntrarNaTroca", TrocaId);
+        conectado = true;
+    }
+
+    private async Task AoTeclar(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") await Enviar();
+    }
+
+    private async Task Enviar()
+    {
+        if (hub is null || string.IsNullOrWhiteSpace(texto)) return;
+        await hub.InvokeAsync("Enviar", TrocaId, autor, texto);
+        texto = "";
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (hub is not null) await hub.DisposeAsync();
+    }
+}

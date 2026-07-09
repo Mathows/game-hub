@@ -12,6 +12,7 @@ using GameHub.Infrastructure.NHib;
 using GameHub.Domain.Interfaces;
 using GameHub.Domain.Services;
 using GameHub.Web.Services;
+using GameHub.Web.Hubs;
 using NHibernate;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -19,6 +20,10 @@ var builder = WebApplication.CreateBuilder(args);
 // Add services to the container.
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
+
+// SignalR para o nosso Hub de chat (Fase 5) + a "caixa" de mensagens em memória (Singleton).
+builder.Services.AddSignalR();
+builder.Services.AddSingleton<ChatTrocaStore>();
 
 builder.Services.AddCascadingAuthenticationState();
 builder.Services.AddScoped<IdentityRedirectManager>();
@@ -131,6 +136,9 @@ app.MapAdditionalIdentityEndpoints();
 
 // Endpoint do webhook de pagamento (POST /webhooks/pagamento).
 app.MapWebhookEndpoints();
+
+// Hub do chat de trocas (SignalR).
+app.MapHub<TrocaChatHub>("/hubs/troca-chat");
 
 // Endpoints EDUCATIVOS (só em desenvolvimento) para entender cache do DbContext e DI.
 if (app.Environment.IsDevelopment())

@@ -69,6 +69,10 @@ else
                         {
                             <button class="pg-btn pg-btn-ghost" @onclick="() => Recusar(t.Id)" disabled="@ocupado">Cancelar</button>
                         }
+                        @if (t.Status == StatusTroca.Aceita)
+                        {
+                            <a class="pg-btn pg-btn-outline" href="trocas/@t.Id/chat">💬 Chat</a>
+                        }
                     </td>
                 </tr>
             }

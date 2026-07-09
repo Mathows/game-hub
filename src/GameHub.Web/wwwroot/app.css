@@ -158,3 +158,11 @@ h1, h2, h3 { color: var(--pg-text); }
 .pg-nota-total { text-align: right; font-size: 1.25rem; font-weight: 800; margin-top: 1rem; }
 .pg-nota-total .gold { color: var(--pg-gold); }
 @media (max-width: 700px) { .pg-nota-grid { grid-template-columns: 1fr; } }
+
+/* ---------- Chat da troca (SignalR) ---------- */
+.pg-chat { background: var(--pg-panel); border: 1px solid var(--pg-border); border-radius: 12px; padding: 1rem; min-height: 240px; max-height: 50vh; overflow-y: auto; display: flex; flex-direction: column; gap: .5rem; margin-bottom: .75rem; }
+.pg-chat-msg { background: var(--pg-panel-2); border: 1px solid var(--pg-border); border-radius: 10px; padding: .5rem .75rem; max-width: 75%; align-self: flex-start; }
+.pg-chat-msg.mine { align-self: flex-end; border-color: var(--pg-gold); }
+.pg-chat-autor { font-size: .72rem; color: var(--pg-gold); margin-bottom: .15rem; }
+.pg-chat-input { display: flex; gap: .5rem; }
+.pg-chat-input .pg-input { flex: 1; }
