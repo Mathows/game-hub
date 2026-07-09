@@ -3,6 +3,7 @@
 @using System.Security.Claims
 @inject CarrinhoService Cart
 @inject IPedidoService PedidoService
+@inject IAluguelService AluguelService
 
 <PageTitle>Carrinho — GameHub</PageTitle>
 
@@ -55,18 +56,13 @@ else
         </tbody>
     </table>
 
-    @if (TemAluguel)
-    {
-        <p class="pg-muted">Itens de <b>aluguel</b> serão processados no Passo 3. Por enquanto, o "Finalizar" fecha só os itens de <b>compra</b>.</p>
-    }
-
     <div class="pg-cart-footer">
         <button class="pg-btn pg-btn-ghost" @onclick="Cart.Limpar" disabled="@processando">Esvaziar carrinho</button>
         <div class="pg-cart-total">
-            Compra: <span class="gold">R$ @TotalCompra.ToString("N2")</span>
+            Total: <span class="gold">R$ @Cart.ValorTotal.ToString("N2")</span>
         </div>
-        <button class="pg-btn pg-btn-gold" @onclick="Finalizar" disabled="@(processando || !TemCompra)">
-            @(processando ? "Processando..." : "Finalizar compra")
+        <button class="pg-btn pg-btn-gold" @onclick="Finalizar" disabled="@(processando || Cart.Itens.Count == 0)">
+            @(processando ? "Processando..." : "Finalizar")
         </button>
     </div>
 }
@@ -79,25 +75,19 @@ else
     private string? erro;
     private bool processando;
 
-    // Atalhos de leitura sobre o carrinho.
-    private bool TemCompra => Cart.Itens.Any(i => i.Tipo == TipoAquisicao.Compra);
-    private bool TemAluguel => Cart.Itens.Any(i => i.Tipo == TipoAquisicao.Aluguel);
-    private decimal TotalCompra => Cart.Itens.Where(i => i.Tipo == TipoAquisicao.Compra).Sum(i => i.Subtotal);
-
     private async Task Finalizar()
     {
         sucesso = null;
         erro = null;
 
-        // 1) Precisa estar logado (o pedido pertence a um cliente).
+        // 1) Precisa estar logado (pedido/aluguel pertencem a um cliente).
         var user = AuthState is null ? null : (await AuthState).User;
         if (user?.Identity?.IsAuthenticated != true)
         {
-            erro = "Entre na sua conta para finalizar a compra.";
+            erro = "Entre na sua conta para finalizar.";
             return;
         }
 
-        // 2) Identifica o usuário do login (Id do AspNetUsers) e um nome.
         var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         var nome = user.Identity?.Name ?? "Cliente";
         if (string.IsNullOrEmpty(userId))
@@ -106,27 +96,44 @@ else
             return;
         }
 
-        // 3) Monta a lista de itens de COMPRA (aluguel fica para o Passo 3).
+        // 2) Separa os itens do carrinho por tipo.
         var itensCompra = Cart.Itens
             .Where(i => i.Tipo == TipoAquisicao.Compra)
             .Select(i => new ItemCompra(i.JogoId, i.Quantidade))
             .ToList();
 
+        var itensAluguel = Cart.Itens
+            .Where(i => i.Tipo == TipoAquisicao.Aluguel)
+            .Select(i => new ItemAluguel(i.JogoId, i.DiasAluguel))
+            .ToList();
+
         processando = true;
         try
         {
-            // 4) Chama o serviço (que faz tudo dentro de uma transação).
-            var pedido = await PedidoService.FinalizarCompraAsync(userId, nome, itensCompra);
+            var partes = new List<string>();
 
-            // 5) Deu certo: remove do carrinho os itens de compra já pedidos.
-            foreach (var item in Cart.Itens.Where(i => i.Tipo == TipoAquisicao.Compra).ToList())
-                Cart.Remover(item);
+            // 3a) Compra → cria um Pedido (transação própria).
+            if (itensCompra.Count > 0)
+            {
+                var pedido = await PedidoService.FinalizarCompraAsync(userId, nome, itensCompra);
+                partes.Add($"Pedido #{pedido.Id} (R$ {pedido.ValorTotal:N2})");
+            }
 
-            sucesso = $"Pedido #{pedido.Id} criado (R$ {pedido.ValorTotal:N2}) — aguardando pagamento.";
+            // 3b) Aluguel → cria os Aluguéis (transação própria).
+            if (itensAluguel.Count > 0)
+            {
+                var alugueis = await AluguelService.FinalizarAluguelAsync(userId, nome, itensAluguel);
+                var totalAluguel = alugueis.Sum(a => a.ValorTotal);
+                partes.Add($"{alugueis.Count} aluguel(éis) (R$ {totalAluguel:N2})");
+            }
+
+            // 4) Deu certo: esvazia o carrinho e monta a mensagem.
+            Cart.Limpar();
+            sucesso = "Feito! " + string.Join(" e ", partes) + " — aguardando pagamento.";
         }
         catch (Exception ex)
         {
-            // Se o serviço lançou (ex.: estoque insuficiente), a transação já fez Rollback.
+            // Se um serviço lançou, a transação dele já fez Rollback.
             erro = ex.Message;
         }
         finally

@@ -4,10 +4,12 @@ using Microsoft.EntityFrameworkCore;
 using GameHub.Web.Components;
 using GameHub.Web.Components.Account;
 using GameHub.Web.Data;
+using GameHub.Web.Endpoints;
 using GameHub.Infrastructure.Data;
 using GameHub.Infrastructure.Repositories;
 using GameHub.Infrastructure.Services;
 using GameHub.Domain.Interfaces;
+using GameHub.Domain.Services;
 using GameHub.Web.Services;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -49,6 +51,24 @@ builder.Services.AddScoped<CarrinhoService>();
 // Scoped porque usa o GameHubDbContext.
 builder.Services.AddScoped<IPedidoService, PedidoService>();
 
+// Aluguel: o serviço é Scoped (usa o DbContext); a calculadora é Transient
+// (só faz conta, sem estado). Aqui os 3 tempos de vida convivem no projeto:
+// Singleton (IEmailSender) · Scoped (repos/serviços/carrinho) · Transient (calculadora).
+builder.Services.AddTransient<CalculadoraAluguel>();
+builder.Services.AddScoped<IAluguelService, AluguelService>();
+
+// Pagamento: confirma o pedido quando o webhook chega (Scoped, usa o DbContext).
+builder.Services.AddScoped<IPagamentoService, PagamentoService>();
+
+// HttpClient usado SÓ pelo simulador de pagamento (DEV) para chamar o nosso próprio
+// webhook. O callback custom de certificado aceita o certificado de desenvolvimento
+// do localhost (não usar isso em produção).
+builder.Services.AddHttpClient("self")
+    .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
+    {
+        ServerCertificateCustomValidationCallback = (_, _, _, _) => true
+    });
+
 builder.Services.AddIdentityCore<ApplicationUser>(options =>
     {
         options.SignIn.RequireConfirmedAccount = true;
@@ -59,6 +79,10 @@ builder.Services.AddIdentityCore<ApplicationUser>(options =>
     .AddDefaultTokenProviders();
 
 builder.Services.AddSingleton<IEmailSender<ApplicationUser>, IdentityNoOpEmailSender>();
+
+// Nosso serviço de e-mail (confirmação de pedido). Singleton: caixa de saída única do app.
+// Hoje é simulado (guarda em memória); na Fase 6 vira Gmail SMTP, sem mudar a interface.
+builder.Services.AddSingleton<IEmailService, EmailSimuladoService>();
 
 var app = builder.Build();
 
@@ -84,5 +108,14 @@ app.MapRazorComponents<App>()
 
 // Add additional endpoints required by the Identity /Account Razor components.
 app.MapAdditionalIdentityEndpoints();
+
+// Endpoint do webhook de pagamento (POST /webhooks/pagamento).
+app.MapWebhookEndpoints();
+
+// Endpoints EDUCATIVOS (só em desenvolvimento) para entender cache do DbContext e DI.
+if (app.Environment.IsDevelopment())
+{
+    app.MapDemoEndpoints();
+}
 
 app.Run();
