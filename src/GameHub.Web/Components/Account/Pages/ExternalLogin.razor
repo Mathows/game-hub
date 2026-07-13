@@ -130,7 +130,32 @@
             return;
         }
 
-        // If the user does not have an account, then ask the user to create an account.
+        // Não há login externo vinculado ainda. ANTES de pedir cadastro, verificamos se já existe
+        // uma conta local com este e-mail. Se existir, VINCULAMOS o Google a ela (só uma linha nova
+        // em AspNetUserLogins, via AddLoginAsync) e entramos — sem duplicar conta, sem erro.
+        // Segurança: só é seguro auto-vincular porque o Google VERIFICA o e-mail (o dono do e-mail
+        // no Google é o mesmo dono da conta local com esse e-mail). Provedor sem e-mail verificado
+        // exigiria logar antes de vincular.
+        var emailExterno = externalLoginInfo.Principal.FindFirstValue(ClaimTypes.Email);
+        if (!string.IsNullOrEmpty(emailExterno))
+        {
+            var contaExistente = await UserManager.FindByEmailAsync(emailExterno);
+            if (contaExistente is not null)
+            {
+                var vinculo = await UserManager.AddLoginAsync(contaExistente, externalLoginInfo);
+                if (vinculo.Succeeded)
+                {
+                    Logger.LogInformation(
+                        "Login externo {LoginProvider} vinculado a conta existente {Email}.",
+                        externalLoginInfo.LoginProvider, emailExterno);
+                    await SignInManager.SignInAsync(contaExistente, isPersistent: false, externalLoginInfo.LoginProvider);
+                    RedirectManager.RedirectTo(ReturnUrl);
+                    return;
+                }
+            }
+        }
+
+        // Se não existe conta com esse e-mail, então pedimos para criar uma (tela de cadastro).
         if (externalLoginInfo.Principal.HasClaim(c => c.Type == ClaimTypes.Email))
         {
             Input.Email = externalLoginInfo.Principal.FindFirstValue(ClaimTypes.Email) ?? "";
