@@ -21,7 +21,7 @@ public class PedidoService : IPedidoService
         _context = context;
     }
 
-    public async Task<Pedido> FinalizarCompraAsync(string applicationUserId, string nomeCliente, IReadOnlyList<ItemCompra> itens)
+    public async Task<Pedido> FinalizarCompraAsync(string applicationUserId, string nomeCliente, IReadOnlyList<ItemCompra> itens, EnderecoEntrega? enderecoEntrega)
     {
         if (itens is null || itens.Count == 0)
             throw new InvalidOperationException("Não há itens de compra no carrinho.");
@@ -47,7 +47,8 @@ public class PedidoService : IPedidoService
             {
                 Cliente = cliente,
                 DataPedido = DateTime.Now,
-                Status = StatusPedido.Pendente     // vira "Pago" via webhook (Passo 4)
+                Status = StatusPedido.Pendente,    // vira "Pago" via webhook (Passo 4)
+                EnderecoEntrega = enderecoEntrega  // SNAPSHOT do endereço no momento da compra
             };
 
             decimal total = 0m;

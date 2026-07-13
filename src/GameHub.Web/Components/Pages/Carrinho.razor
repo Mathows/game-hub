@@ -1,9 +1,11 @@
 @page "/carrinho"
 @rendermode InteractiveServer
 @using System.Security.Claims
+@using GameHub.Domain.Entities
 @inject CarrinhoService Cart
 @inject IPedidoService PedidoService
 @inject IAluguelService AluguelService
+@inject IEnderecoService EnderecoService
 
 <PageTitle>Carrinho — GameHub</PageTitle>
 
@@ -56,6 +58,36 @@ else
         </tbody>
     </table>
 
+    @* ---- Endereço de entrega (aparece quando há itens de COMPRA no carrinho) ---- *@
+    @if (Cart.Itens.Any(i => i.Tipo == TipoAquisicao.Compra))
+    {
+        <div style="margin:1.25rem 0;">
+            <h3 class="gold">Endereço de entrega</h3>
+            @if (enderecos is null)
+            {
+                <p class="pg-muted">Carregando endereços...</p>
+            }
+            else if (enderecos.Count == 0)
+            {
+                <p class="pg-muted">
+                    Você ainda não tem endereço. <a href="minha-conta/enderecos">Cadastrar endereço</a>
+                    (necessário para finalizar a compra).
+                </p>
+            }
+            else
+            {
+                <select class="pg-input" @bind="enderecoSelecionadoId" style="max-width:520px;">
+                    @foreach (var e in enderecos)
+                    {
+                        <option value="@e.Id">
+                            @e.Logradouro, @e.Numero — @e.Bairro, @e.Cidade/@e.Uf (@e.Cep)@(e.Principal ? " ★" : "")
+                        </option>
+                    }
+                </select>
+            }
+        </div>
+    }
+
     <div class="pg-cart-footer">
         <button class="pg-btn pg-btn-ghost" @onclick="Cart.Limpar" disabled="@processando">Esvaziar carrinho</button>
         <div class="pg-cart-total">
@@ -74,6 +106,22 @@ else
     private string? sucesso;
     private string? erro;
     private bool processando;
+
+    // Agenda do cliente (para escolher o endereço de entrega) + o id escolhido.
+    private List<Endereco>? enderecos;
+    private int enderecoSelecionadoId;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var user = AuthState is null ? null : (await AuthState).User;
+        var userId = user?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (string.IsNullOrEmpty(userId)) { enderecos = new(); return; }
+
+        enderecos = await EnderecoService.ListarDoUsuarioAsync(userId);
+        // Default: o endereço principal (ou o primeiro), se houver.
+        var padrao = enderecos.FirstOrDefault(e => e.Principal) ?? enderecos.FirstOrDefault();
+        if (padrao is not null) enderecoSelecionadoId = padrao.Id;
+    }
 
     private async Task Finalizar()
     {
@@ -107,6 +155,30 @@ else
             .Select(i => new ItemAluguel(i.JogoId, i.DiasAluguel))
             .ToList();
 
+        // 2b) Endereço de entrega: só exigido quando há COMPRA (o aluguel não gera Pedido).
+        EnderecoEntrega? enderecoEntrega = null;
+        if (itensCompra.Count > 0)
+        {
+            var escolhido = enderecos?.FirstOrDefault(e => e.Id == enderecoSelecionadoId);
+            if (escolhido is null)
+            {
+                erro = "Escolha um endereço de entrega (ou cadastre em Meus Endereços).";
+                return;
+            }
+            // SNAPSHOT: copiamos os campos do endereço escolhido (NÃO referenciamos a agenda) —
+            // assim o pedido guarda o endereço "congelado", mesmo que a agenda mude depois (§5.1).
+            enderecoEntrega = new EnderecoEntrega
+            {
+                Cep = escolhido.Cep,
+                Logradouro = escolhido.Logradouro,
+                Numero = escolhido.Numero,
+                Complemento = escolhido.Complemento,
+                Bairro = escolhido.Bairro,
+                Cidade = escolhido.Cidade,
+                Uf = escolhido.Uf
+            };
+        }
+
         processando = true;
         try
         {
@@ -115,7 +187,7 @@ else
             // 3a) Compra → cria um Pedido (transação própria).
             if (itensCompra.Count > 0)
             {
-                var pedido = await PedidoService.FinalizarCompraAsync(userId, nome, itensCompra);
+                var pedido = await PedidoService.FinalizarCompraAsync(userId, nome, itensCompra, enderecoEntrega);
                 partes.Add($"Pedido #{pedido.Id} (R$ {pedido.ValorTotal:N2})");
             }
 
