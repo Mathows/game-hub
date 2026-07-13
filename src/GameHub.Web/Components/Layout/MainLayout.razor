@@ -24,6 +24,7 @@
                     <Authorized>
                         <NotificacaoListener @rendermode="InteractiveServer" />
                         <a class="pg-nav-link" href="meus-pedidos">Meus Pedidos</a>
+                        <a class="pg-nav-link" href="minha-conta/enderecos">Endereços</a>
                         <a class="pg-nav-link" href="Account/Manage">@context.User.Identity?.Name</a>
                         @* Sair: logout é um POST (com antiforgery) pra Account/Logout — nunca um link GET,
                            senão qualquer site conseguiria te deslogar. ReturnUrl vazio volta pra home. *@

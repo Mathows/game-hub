@@ -73,6 +73,14 @@ builder.Services.AddDbContext<GameHubDbContext>(options =>
 // Scoped = uma instância por requisição/página.
 builder.Services.AddScoped<IJogoRepository, JogoRepository>();
 
+// Agenda de endereços do cliente (Scoped, usa o DbContext).
+builder.Services.AddScoped<IEnderecoService, EnderecoService>();
+
+// Busca de CEP via ViaCEP (grátis). HttpClient TIPADO: a DI cria o ViaCepService já com
+// um HttpClient configurado com a BaseAddress do ViaCEP. Trocar de provedor = trocar aqui.
+builder.Services.AddHttpClient<ICepService, ViaCepService>(c =>
+    c.BaseAddress = new Uri("https://viacep.com.br/"));
+
 // Carrinho de compras: Scoped = um carrinho por usuário (por circuito SignalR).
 // Se fosse Singleton, todos os usuários dividiriam o mesmo carrinho.
 builder.Services.AddScoped<CarrinhoService>();
