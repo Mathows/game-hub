@@ -64,10 +64,18 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlServer(connectionString));
 builder.Services.AddDatabaseDeveloperPageExceptionFilter();
 
+// "Quem está logado agora" (lê o HttpContext) + auditoria automática.
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<IUsuarioAtual, UsuarioAtual>();
+builder.Services.AddScoped<AuditoriaInterceptor>();
+
 // Contexto da LOJA (jogos, clientes, pedidos, aluguéis, trocas).
 // Usa o MESMO banco (GameHubDb) e a MESMA conexão do login.
-builder.Services.AddDbContext<GameHubDbContext>(options =>
-    options.UseSqlServer(connectionString));
+// O overload (sp, options) permite injetar o AuditoriaInterceptor (que depende do IUsuarioAtual):
+// assim TODO SaveChanges deste contexto carimba a auditoria sozinho.
+builder.Services.AddDbContext<GameHubDbContext>((sp, options) =>
+    options.UseSqlServer(connectionString)
+           .AddInterceptors(sp.GetRequiredService<AuditoriaInterceptor>()));
 
 // Repositórios da loja (Injeção de Dependência).
 // Scoped = uma instância por requisição/página.

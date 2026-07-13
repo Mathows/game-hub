@@ -1,4 +1,5 @@
 using GameHub.Domain.Enums;
+using GameHub.Domain.Interfaces;
 
 namespace GameHub.Domain.Entities;
 
@@ -6,7 +7,7 @@ namespace GameHub.Domain.Entities;
 /// Cliente da loja. Fica LIGADO ao usuário de login (ASP.NET Identity)
 /// através do Id do usuário — é a "ponte" entre a loja e o sistema de login.
 /// </summary>
-public class Cliente
+public class Cliente : IAuditavel
 {
     public int Id { get; set; }
 
@@ -31,4 +32,10 @@ public class Cliente
     public ICollection<Pedido> Pedidos { get; set; } = new List<Pedido>();
     public ICollection<Aluguel> Alugueis { get; set; } = new List<Aluguel>();
     public ICollection<Troca> Trocas { get; set; } = new List<Troca>();
+
+    // --- Auditoria (preenchida automaticamente pelo AuditoriaInterceptor) ---
+    public DateTime CriadoEm { get; set; }
+    public string? CriadoPor { get; set; }
+    public DateTime? AtualizadoEm { get; set; }
+    public string? AtualizadoPor { get; set; }
 }

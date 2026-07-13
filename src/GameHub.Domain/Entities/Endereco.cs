@@ -1,3 +1,5 @@
+using GameHub.Domain.Interfaces;
+
 namespace GameHub.Domain.Entities;
 
 /// <summary>
@@ -5,7 +7,7 @@ namespace GameHub.Domain.Entities;
 /// A chave estrangeira <see cref="ClienteId"/> mora AQUI, no lado "muitos" — que é o
 /// lado correto de um relacionamento 1:N (ver Sistema.md §5.1: a regra do endereço).
 /// </summary>
-public class Endereco
+public class Endereco : IAuditavel
 {
     public int Id { get; set; }
 
@@ -23,4 +25,10 @@ public class Endereco
 
     /// <summary>Marca o endereço "favorito" da agenda (o sugerido no checkout).</summary>
     public bool Principal { get; set; }
+
+    // --- Auditoria (preenchida automaticamente pelo AuditoriaInterceptor) ---
+    public DateTime CriadoEm { get; set; }
+    public string? CriadoPor { get; set; }
+    public DateTime? AtualizadoEm { get; set; }
+    public string? AtualizadoPor { get; set; }
 }

@@ -139,9 +139,9 @@ public class GameHubDbContext : DbContext
         // Data fixa no seed (o EF exige valor constante aqui, não pode ser DateTime.Now).
         var dataSeed = new DateTime(2026, 6, 24);
         modelBuilder.Entity<Jogo>().HasData(
-            new Jogo { Id = 1, Titulo = "God of War", PlataformaId = 2, GeneroId = 1, Condicao = CondicaoJogo.Usado, PrecoVenda = 150m, PrecoAluguelDia = 15m, QuantidadeEstoque = 3, Disponivel = true, DataCadastro = dataSeed },
-            new Jogo { Id = 2, Titulo = "The Witcher 3", PlataformaId = 1, GeneroId = 2, Condicao = CondicaoJogo.Usado, PrecoVenda = 90m, PrecoAluguelDia = 10m, QuantidadeEstoque = 5, Disponivel = true, DataCadastro = dataSeed },
-            new Jogo { Id = 3, Titulo = "EA Sports FC 24", PlataformaId = 3, GeneroId = 3, Condicao = CondicaoJogo.Novo, PrecoVenda = 250m, PrecoAluguelDia = 20m, QuantidadeEstoque = 2, Disponivel = true, DataCadastro = dataSeed }
+            new Jogo { Id = 1, Titulo = "God of War", PlataformaId = 2, GeneroId = 1, Condicao = CondicaoJogo.Usado, PrecoVenda = 150m, PrecoAluguelDia = 15m, QuantidadeEstoque = 3, Disponivel = true, DataCadastro = dataSeed, CriadoEm = dataSeed, CriadoPor = "seed" },
+            new Jogo { Id = 2, Titulo = "The Witcher 3", PlataformaId = 1, GeneroId = 2, Condicao = CondicaoJogo.Usado, PrecoVenda = 90m, PrecoAluguelDia = 10m, QuantidadeEstoque = 5, Disponivel = true, DataCadastro = dataSeed, CriadoEm = dataSeed, CriadoPor = "seed" },
+            new Jogo { Id = 3, Titulo = "EA Sports FC 24", PlataformaId = 3, GeneroId = 3, Condicao = CondicaoJogo.Novo, PrecoVenda = 250m, PrecoAluguelDia = 20m, QuantidadeEstoque = 2, Disponivel = true, DataCadastro = dataSeed, CriadoEm = dataSeed, CriadoPor = "seed" }
         );
     }
 }

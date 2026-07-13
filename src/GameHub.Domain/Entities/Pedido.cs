@@ -1,9 +1,10 @@
 using GameHub.Domain.Enums;
+using GameHub.Domain.Interfaces;
 
 namespace GameHub.Domain.Entities;
 
 /// <summary>Uma COMPRA feita por um cliente. Pode conter vários jogos (itens).</summary>
-public class Pedido
+public class Pedido : IAuditavel
 {
     public int Id { get; set; }
 
@@ -22,4 +23,10 @@ public class Pedido
 
     // Os itens (jogos) deste pedido — um pedido tem vários itens.
     public ICollection<ItemPedido> Itens { get; set; } = new List<ItemPedido>();
+
+    // --- Auditoria (preenchida automaticamente pelo AuditoriaInterceptor) ---
+    public DateTime CriadoEm { get; set; }
+    public string? CriadoPor { get; set; }
+    public DateTime? AtualizadoEm { get; set; }
+    public string? AtualizadoPor { get; set; }
 }
