@@ -19,7 +19,6 @@ public class ClienteMap : ClassMapping<Cliente>
         Id(x => x.Id, m => m.Generator(Generators.Identity));
         Property(x => x.Nome);
         Property(x => x.Telefone);
-        Property(x => x.Endereco);
         Property(x => x.ApplicationUserId);
         Property(x => x.DataCadastro);
     }

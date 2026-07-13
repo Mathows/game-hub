@@ -22,6 +22,7 @@ public class GameHubDbContext : DbContext
     public DbSet<Plataforma> Plataformas => Set<Plataforma>();
     public DbSet<Genero> Generos => Set<Genero>();
     public DbSet<Cliente> Clientes => Set<Cliente>();
+    public DbSet<Endereco> Enderecos => Set<Endereco>();
     public DbSet<Pedido> Pedidos => Set<Pedido>();
     public DbSet<ItemPedido> ItensPedido => Set<ItemPedido>();
     public DbSet<Aluguel> Alugueis => Set<Aluguel>();
@@ -38,6 +39,39 @@ public class GameHubDbContext : DbContext
         modelBuilder.Entity<Jogo>().Property(j => j.Titulo).HasMaxLength(200).IsRequired();
         modelBuilder.Entity<Jogo>().Property(j => j.Descricao).HasMaxLength(1000);
         modelBuilder.Entity<Cliente>().Property(c => c.Nome).HasMaxLength(150).IsRequired();
+        modelBuilder.Entity<Cliente>().Property(c => c.Telefone).HasMaxLength(20);
+        modelBuilder.Entity<Cliente>().Property(c => c.CpfCnpj).HasMaxLength(14);   // só dígitos (CPF 11 / CNPJ 14)
+
+        // ---- Endereço (agenda do cliente): Cliente (1) → Endereco (N). FK na Endereco. ----
+        // Restrict = não deixa apagar um cliente que tenha endereços (evita cascata perigosa).
+        modelBuilder.Entity<Endereco>(e =>
+        {
+            e.Property(x => x.Cep).HasMaxLength(8).IsRequired();          // só dígitos
+            e.Property(x => x.Logradouro).HasMaxLength(150).IsRequired();
+            e.Property(x => x.Numero).HasMaxLength(20).IsRequired();
+            e.Property(x => x.Complemento).HasMaxLength(100);
+            e.Property(x => x.Bairro).HasMaxLength(80).IsRequired();
+            e.Property(x => x.Cidade).HasMaxLength(80).IsRequired();
+            e.Property(x => x.Uf).HasMaxLength(2).IsRequired();
+            e.HasOne(x => x.Cliente)
+             .WithMany(c => c.Enderecos)
+             .HasForeignKey(x => x.ClienteId)
+             .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        // ---- Endereço de ENTREGA do pedido: owned type (snapshot embutido no Pedido). ----
+        // Vira colunas EnderecoEntrega_Cep, _Logradouro... na própria tabela Pedido.
+        // Não há tabela separada nem FK solta → IMPOSSÍVEL um pedido ter 2 endereços (§5.1).
+        modelBuilder.Entity<Pedido>().OwnsOne(p => p.EnderecoEntrega, ee =>
+        {
+            ee.Property(x => x.Cep).HasMaxLength(8);
+            ee.Property(x => x.Logradouro).HasMaxLength(150);
+            ee.Property(x => x.Numero).HasMaxLength(20);
+            ee.Property(x => x.Complemento).HasMaxLength(100);
+            ee.Property(x => x.Bairro).HasMaxLength(80);
+            ee.Property(x => x.Cidade).HasMaxLength(80);
+            ee.Property(x => x.Uf).HasMaxLength(2);
+        });
 
         // ---- Precisão dos valores em dinheiro: decimal(10,2) = até 99.999.999,99 ----
         modelBuilder.Entity<Jogo>().Property(j => j.PrecoVenda).HasPrecision(10, 2);
