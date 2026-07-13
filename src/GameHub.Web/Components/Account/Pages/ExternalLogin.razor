@@ -117,6 +117,19 @@
 
         if (result.Succeeded)
         {
+            // Backfill do nome: se a conta já vinculada ainda não tem nome (foi criada antes de
+            // capturarmos), preenche com os claims do Google e RE-LOGA — assim o cookie é
+            // reconstruído já com o claim "nome" (o ExternalLoginSignInAsync acima gerou o cookie
+            // ANTES de termos o nome).
+            var logado = await UserManager.FindByLoginAsync(externalLoginInfo.LoginProvider, externalLoginInfo.ProviderKey);
+            if (logado is not null && string.IsNullOrWhiteSpace(logado.Nome))
+            {
+                logado.Nome = externalLoginInfo.Principal.FindFirstValue(ClaimTypes.GivenName);
+                logado.Sobrenome = externalLoginInfo.Principal.FindFirstValue(ClaimTypes.Surname);
+                await UserManager.UpdateAsync(logado);
+                await SignInManager.SignInAsync(logado, isPersistent: false, externalLoginInfo.LoginProvider);
+            }
+
             Logger.LogInformation(
                 "{Name} logged in with {LoginProvider} provider.",
                 externalLoginInfo.Principal.Identity?.Name,
@@ -142,6 +155,15 @@
             var contaExistente = await UserManager.FindByEmailAsync(emailExterno);
             if (contaExistente is not null)
             {
+                // Se a conta ainda não tem nome (ex.: criada antes de capturarmos), preenche
+                // com o que o Google mandou nos claims given_name/family_name.
+                if (string.IsNullOrWhiteSpace(contaExistente.Nome))
+                {
+                    contaExistente.Nome = externalLoginInfo.Principal.FindFirstValue(ClaimTypes.GivenName);
+                    contaExistente.Sobrenome = externalLoginInfo.Principal.FindFirstValue(ClaimTypes.Surname);
+                    await UserManager.UpdateAsync(contaExistente);
+                }
+
                 var vinculo = await UserManager.AddLoginAsync(contaExistente, externalLoginInfo);
                 if (vinculo.Succeeded)
                 {
@@ -172,6 +194,10 @@
 
         var emailStore = GetEmailStore();
         var user = CreateUser();
+
+        // Captura nome/sobrenome que o Google enviou nos claims (given_name / family_name).
+        user.Nome = externalLoginInfo.Principal.FindFirstValue(ClaimTypes.GivenName);
+        user.Sobrenome = externalLoginInfo.Principal.FindFirstValue(ClaimTypes.Surname);
 
         await UserStore.SetUserNameAsync(user, Input.Email, CancellationToken.None);
         await emailStore.SetEmailAsync(user, Input.Email, CancellationToken.None);
