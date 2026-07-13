@@ -23,6 +23,8 @@ public static class NHibernateConfig
             db.ConnectionString = connectionString;
             db.Dialect<MsSql2012Dialect>();
             db.Driver<MicrosoftDataSqlClientDriver>();
+            db.LogSqlInConsole = true;     // mostra no console o SQL que o NHibernate gera
+            db.LogFormattedSql = true;     // formatado (mais legível)
         });
 
         // Registra os mapeamentos "por código".
