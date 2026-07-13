@@ -29,12 +29,35 @@ builder.Services.AddCascadingAuthenticationState();
 builder.Services.AddScoped<IdentityRedirectManager>();
 builder.Services.AddScoped<AuthenticationStateProvider, IdentityRevalidatingAuthenticationStateProvider>();
 
-builder.Services.AddAuthentication(options =>
+// Autenticação: os cookies do Identity + (opcional) login externo com Google.
+// Guardamos o AuthenticationBuilder porque AddIdentityCookies() devolve OUTRO tipo
+// (IdentityCookiesBuilder) que não tem AddGoogle — o AddGoogle vive no AuthenticationBuilder.
+var authBuilder = builder.Services.AddAuthentication(options =>
     {
         options.DefaultScheme = IdentityConstants.ApplicationScheme;
         options.DefaultSignInScheme = IdentityConstants.ExternalScheme;
-    })
-    .AddIdentityCookies();
+    });
+authBuilder.AddIdentityCookies();
+
+// Fase 6 · Login com Google (OAuth 2.0).
+// As credenciais (ClientId/ClientSecret) vêm de USER-SECRETS, NUNCA do appsettings/Git
+// (princípio de segurança do Sistema.md — segredo não vai pro repositório).
+//   dotnet user-secrets set "Authentication:Google:ClientId" "SEU_ID"
+//   dotnet user-secrets set "Authentication:Google:ClientSecret" "SEU_SEGREDO"
+// Só registramos o Google SE as credenciais existirem — assim o app sobe normalmente
+// mesmo antes de você configurar (o botão "Google" só aparece quando estiver pronto).
+var googleClientId = builder.Configuration["Authentication:Google:ClientId"];
+var googleClientSecret = builder.Configuration["Authentication:Google:ClientSecret"];
+if (!string.IsNullOrWhiteSpace(googleClientId) && !string.IsNullOrWhiteSpace(googleClientSecret))
+{
+    authBuilder.AddGoogle(options =>
+    {
+        options.ClientId = googleClientId;
+        options.ClientSecret = googleClientSecret;
+        // Rota de callback padrão do handler: /signin-google
+        // (precisa bater com a "URI de redirecionamento autorizada" no Google Cloud Console).
+    });
+}
 
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
