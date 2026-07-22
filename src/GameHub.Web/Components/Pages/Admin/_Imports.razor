@@ -1,0 +1,5 @@
+@using Microsoft.AspNetCore.Authorization
+
+@* Aplica a TODAS as páginas desta pasta (Admin): só quem tem o papel "Admin" entra.
+   Um _Imports.razor com @attribute vale para todos os componentes do diretório. *@
+@attribute [Authorize(Roles = "Admin")]

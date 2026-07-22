@@ -138,9 +138,10 @@ builder.Services.AddIdentityCore<ApplicationUser>(options =>
         options.SignIn.RequireConfirmedAccount = false;   // DEV: registra e já entra (sem confirmar e-mail)
         options.Stores.SchemaVersion = IdentitySchemaVersions.Version3;
     })
+    .AddRoles<IdentityRole>()                                            // habilita papéis (Admin/Cliente)
     .AddEntityFrameworkStores<ApplicationDbContext>()
     .AddSignInManager()
-    .AddClaimsPrincipalFactory<ApplicationUserClaimsPrincipalFactory>()   // adiciona o claim "nome"
+    .AddClaimsPrincipalFactory<ApplicationUserClaimsPrincipalFactory>()   // adiciona claim "nome" + roles
     .AddDefaultTokenProviders();
 
 builder.Services.AddSingleton<IEmailSender<ApplicationUser>, IdentityNoOpEmailSender>();
@@ -150,6 +151,27 @@ builder.Services.AddSingleton<IEmailSender<ApplicationUser>, IdentityNoOpEmailSe
 builder.Services.AddSingleton<IEmailService, EmailSimuladoService>();
 
 var app = builder.Build();
+
+// ---- Seed de papéis (roles) + concede "Admin" ao e-mail configurado (Admin:Email) ----
+// Roda no start: garante que as roles existem e que o dono é Admin. Idempotente.
+await using (var scope = app.Services.CreateAsyncScope())
+{
+    var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
+    foreach (var papel in new[] { "Admin", "Cliente" })
+    {
+        if (!await roleManager.RoleExistsAsync(papel))
+            await roleManager.CreateAsync(new IdentityRole(papel));
+    }
+
+    var adminEmail = app.Configuration["Admin:Email"];
+    if (!string.IsNullOrWhiteSpace(adminEmail))
+    {
+        var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+        var admin = await userManager.FindByEmailAsync(adminEmail);
+        if (admin is not null && !await userManager.IsInRoleAsync(admin, "Admin"))
+            await userManager.AddToRoleAsync(admin, "Admin");
+    }
+}
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())

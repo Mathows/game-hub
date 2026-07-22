@@ -10,12 +10,16 @@ namespace GameHub.Web.Data;
 /// de exibição da pessoa. Assim as telas leem o nome DIRETO do cookie (sem ir ao banco a
 /// cada página) — ex.: o cabeçalho mostra "Matheus Alexandre" em vez do e-mail.
 /// </summary>
-public class ApplicationUserClaimsPrincipalFactory : UserClaimsPrincipalFactory<ApplicationUser>
+// IMPORTANTE: herda da versão de 2 parâmetros (<ApplicationUser, IdentityRole>). É ela que
+// inclui os CLAIMS DE ROLE (papel) na identidade — sem isso, o [Authorize(Roles="Admin")]
+// não reconheceria o admin. A base já adiciona os roles; nós só somamos o claim "nome".
+public class ApplicationUserClaimsPrincipalFactory : UserClaimsPrincipalFactory<ApplicationUser, IdentityRole>
 {
     public ApplicationUserClaimsPrincipalFactory(
         UserManager<ApplicationUser> userManager,
+        RoleManager<IdentityRole> roleManager,
         IOptions<IdentityOptions> options)
-        : base(userManager, options)
+        : base(userManager, roleManager, options)
     {
     }
 

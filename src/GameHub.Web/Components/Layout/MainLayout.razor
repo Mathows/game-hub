@@ -14,7 +14,10 @@
                 <NavLink class="pg-nav-link" href="catalogo">Comprar</NavLink>
                 <NavLink class="pg-nav-link" href="catalogo">Alugar</NavLink>
                 <NavLink class="pg-nav-link" href="trocas">Trocar</NavLink>
-                <NavLink class="pg-nav-link" href="admin/jogos">Admin</NavLink>
+                @* O link Admin só aparece para quem tem o papel "Admin". *@
+                <AuthorizeView Roles="Admin">
+                    <NavLink class="pg-nav-link" href="admin/jogos">Admin</NavLink>
+                </AuthorizeView>
             </nav>
 
             <div class="pg-header-actions">
