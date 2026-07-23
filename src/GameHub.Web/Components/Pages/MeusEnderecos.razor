@@ -1,0 +1,169 @@
+@page "/minha-conta/enderecos"
+@rendermode InteractiveServer
+@using System.Security.Claims
+@using GameHub.Domain.Entities
+@inject ICepService CepService
+@inject IEnderecoService EnderecoService
+
+<PageTitle>Meus Endereços — GameHub</PageTitle>
+
+<div class="pg-section-head">
+    <h1>Meus <span class="gold">Endereços</span></h1>
+</div>
+
+@if (mensagem is not null)
+{
+    <div class="pg-toast">@mensagem</div>
+}
+
+<div style="display:flex; gap:2rem; flex-wrap:wrap; align-items:flex-start;">
+
+    @* ---- Lista de endereços já cadastrados ---- *@
+    <div style="flex:1 1 320px;">
+        <h2 class="gold">Cadastrados</h2>
+        @if (enderecos is null)
+        {
+            <p class="pg-muted">Carregando...</p>
+        }
+        else if (enderecos.Count == 0)
+        {
+            <div class="pg-empty">Nenhum endereço cadastrado ainda.</div>
+        }
+        else
+        {
+            @foreach (var e in enderecos)
+            {
+                <div class="pg-card" style="padding:1rem; margin-bottom:.75rem;">
+                    @if (e.Principal)
+                    {
+                        <span class="gold" style="font-size:.8rem;">★ Principal</span>
+                    }
+                    <div>@e.Logradouro, @e.Numero @(string.IsNullOrEmpty(e.Complemento) ? "" : $"- {e.Complemento}")</div>
+                    <div class="pg-muted">@e.Bairro — @e.Cidade/@e.Uf</div>
+                    <div class="pg-muted">CEP @e.Cep</div>
+                </div>
+            }
+        }
+    </div>
+
+    @* ---- Formulário de novo endereço (com busca por CEP) ---- *@
+    <div style="flex:1 1 320px;">
+        <h2 class="gold">Novo endereço</h2>
+
+        <label>CEP</label>
+        <div style="display:flex; gap:.5rem;">
+            <input class="pg-input" @bind="form.Cep" placeholder="00000-000" />
+            <button class="pg-btn pg-btn-outline" @onclick="BuscarCep" disabled="@ocupado">Buscar</button>
+        </div>
+
+        <label>Logradouro</label>
+        <input class="pg-input" @bind="form.Logradouro" />
+
+        <label>Número</label>
+        <input class="pg-input" @bind="form.Numero" />
+
+        <label>Complemento (opcional)</label>
+        <input class="pg-input" @bind="form.Complemento" />
+
+        <label>Bairro</label>
+        <input class="pg-input" @bind="form.Bairro" />
+
+        <label>Cidade</label>
+        <input class="pg-input" @bind="form.Cidade" />
+
+        <label>UF</label>
+        <input class="pg-input" @bind="form.Uf" maxlength="2" />
+
+        <button class="pg-btn pg-btn-gold" style="margin-top:1rem;" @onclick="Salvar" disabled="@ocupado">
+            Salvar endereço
+        </button>
+        <p class="pg-muted" style="margin-top:.5rem;">
+            Digite o CEP e clique em <strong>Buscar</strong> — rua, bairro, cidade e UF são preenchidos
+            automaticamente pelo <strong>ViaCEP</strong> (grátis). Você só completa número e complemento.
+        </p>
+    </div>
+</div>
+
+@code {
+    [CascadingParameter] private Task<AuthenticationState>? AuthState { get; set; }
+
+    private List<Endereco>? enderecos;
+    private string? userId;
+    private string? nome;
+    private string? mensagem;
+    private bool ocupado;
+    private FormModel form = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        var user = AuthState is null ? null : (await AuthState).User;
+        userId = user?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        nome = user?.Identity?.Name;
+        await CarregarAsync();
+    }
+
+    private async Task CarregarAsync()
+    {
+        if (string.IsNullOrEmpty(userId)) { enderecos = new(); return; }
+        enderecos = await EnderecoService.ListarDoUsuarioAsync(userId);
+    }
+
+    private async Task BuscarCep()
+    {
+        mensagem = null;
+        var resultado = await CepService.BuscarAsync(form.Cep);
+        if (resultado is null)
+        {
+            mensagem = "⚠️ CEP não encontrado.";
+            return;
+        }
+        // Autofill: preenche o que o CEP nos deu (o usuário completa número/complemento).
+        form.Logradouro = resultado.Logradouro;
+        form.Bairro = resultado.Bairro;
+        form.Cidade = resultado.Cidade;
+        form.Uf = resultado.Uf;
+    }
+
+    private async Task Salvar()
+    {
+        if (string.IsNullOrEmpty(userId)) return;
+        ocupado = true;
+        mensagem = null;
+        try
+        {
+            var endereco = new Endereco
+            {
+                Cep = new string(form.Cep.Where(char.IsDigit).ToArray()),
+                Logradouro = form.Logradouro,
+                Numero = form.Numero,
+                Complemento = string.IsNullOrWhiteSpace(form.Complemento) ? null : form.Complemento,
+                Bairro = form.Bairro,
+                Cidade = form.Cidade,
+                Uf = form.Uf.ToUpperInvariant()
+            };
+            await EnderecoService.AdicionarAsync(userId, nome ?? "Cliente", endereco);
+            mensagem = "✅ Endereço salvo.";
+            form = new();                 // limpa o formulário
+            await CarregarAsync();        // recarrega a lista
+        }
+        catch (Exception ex)
+        {
+            mensagem = "⚠️ Erro ao salvar: " + ex.Message;
+        }
+        finally
+        {
+            ocupado = false;
+        }
+    }
+
+    private sealed class FormModel
+    {
+        public string Cep { get; set; } = "";
+        public string Logradouro { get; set; } = "";
+        public string Numero { get; set; } = "";
+        public string Complemento { get; set; } = "";
+        public string Bairro { get; set; } = "";
+        public string Cidade { get; set; } = "";
+        public string Uf { get; set; } = "";
+    }
+}

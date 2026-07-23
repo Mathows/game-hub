@@ -29,26 +29,83 @@ builder.Services.AddCascadingAuthenticationState();
 builder.Services.AddScoped<IdentityRedirectManager>();
 builder.Services.AddScoped<AuthenticationStateProvider, IdentityRevalidatingAuthenticationStateProvider>();
 
-builder.Services.AddAuthentication(options =>
+// Autenticação: os cookies do Identity + (opcional) login externo com Google.
+// Guardamos o AuthenticationBuilder porque AddIdentityCookies() devolve OUTRO tipo
+// (IdentityCookiesBuilder) que não tem AddGoogle — o AddGoogle vive no AuthenticationBuilder.
+var authBuilder = builder.Services.AddAuthentication(options =>
     {
         options.DefaultScheme = IdentityConstants.ApplicationScheme;
         options.DefaultSignInScheme = IdentityConstants.ExternalScheme;
-    })
-    .AddIdentityCookies();
+    });
+authBuilder.AddIdentityCookies();
+
+// Fase 6 · Login com Google (OAuth 2.0).
+// As credenciais (ClientId/ClientSecret) vêm de USER-SECRETS, NUNCA do appsettings/Git
+// (princípio de segurança do Sistema.md — segredo não vai pro repositório).
+//   dotnet user-secrets set "Authentication:Google:ClientId" "SEU_ID"
+//   dotnet user-secrets set "Authentication:Google:ClientSecret" "SEU_SEGREDO"
+// Só registramos o Google SE as credenciais existirem — assim o app sobe normalmente
+// mesmo antes de você configurar (o botão "Google" só aparece quando estiver pronto).
+var googleClientId = builder.Configuration["Authentication:Google:ClientId"];
+var googleClientSecret = builder.Configuration["Authentication:Google:ClientSecret"];
+if (!string.IsNullOrWhiteSpace(googleClientId) && !string.IsNullOrWhiteSpace(googleClientSecret))
+{
+    authBuilder.AddGoogle(options =>
+    {
+        options.ClientId = googleClientId;
+        options.ClientSecret = googleClientSecret;
+        // Rota de callback padrão do handler: /signin-google
+        // (precisa bater com a "URI de redirecionamento autorizada" no Google Cloud Console).
+    });
+}
 
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlServer(connectionString));
 builder.Services.AddDatabaseDeveloperPageExceptionFilter();
 
+// "Quem está logado agora" (lê o HttpContext) + auditoria automática.
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<IUsuarioAtual, UsuarioAtual>();
+builder.Services.AddScoped<AuditoriaInterceptor>();
+
 // Contexto da LOJA (jogos, clientes, pedidos, aluguéis, trocas).
 // Usa o MESMO banco (GameHubDb) e a MESMA conexão do login.
-builder.Services.AddDbContext<GameHubDbContext>(options =>
-    options.UseSqlServer(connectionString));
+// O overload (sp, options) permite injetar o AuditoriaInterceptor (que depende do IUsuarioAtual):
+// assim TODO SaveChanges deste contexto carimba a auditoria sozinho.
+builder.Services.AddDbContext<GameHubDbContext>((sp, options) =>
+    options.UseSqlServer(connectionString)
+           .AddInterceptors(sp.GetRequiredService<AuditoriaInterceptor>()));
 
 // Repositórios da loja (Injeção de Dependência).
 // Scoped = uma instância por requisição/página.
 builder.Services.AddScoped<IJogoRepository, JogoRepository>();
+
+// Agenda de endereços do cliente (Scoped, usa o DbContext).
+builder.Services.AddScoped<IEnderecoService, EnderecoService>();
+
+// Busca de CEP via ViaCEP (grátis). HttpClient TIPADO: a DI cria o ViaCepService já com
+// um HttpClient configurado com a BaseAddress do ViaCEP. Trocar de provedor = trocar aqui.
+builder.Services.AddHttpClient<ICepService, ViaCepService>(c =>
+    c.BaseAddress = new Uri("https://viacep.com.br/"));
+
+// reCAPTCHA v3 (anti-robô no cadastro). Mesmo padrão condicional do Google/Gmail:
+// com a SECRET (user-secrets "Recaptcha:SecretKey") usa a verificação real no Google;
+// sem ela, o serviço "desativado" (sempre aprova) — o app roda nos dois modos.
+// A SiteKey (pública) fica no appsettings ("Recaptcha:SiteKey") e vai pro script da página.
+var recaptchaSecret = builder.Configuration["Recaptcha:SecretKey"];
+if (!string.IsNullOrWhiteSpace(recaptchaSecret))
+{
+    builder.Services.AddHttpClient("recaptcha", c => c.BaseAddress = new Uri("https://www.google.com/"));
+    builder.Services.AddScoped<IRecaptchaService>(sp => new RecaptchaGoogleService(
+        sp.GetRequiredService<IHttpClientFactory>().CreateClient("recaptcha"),
+        recaptchaSecret,
+        sp.GetRequiredService<ILogger<RecaptchaGoogleService>>()));
+}
+else
+{
+    builder.Services.AddSingleton<IRecaptchaService, RecaptchaDesativadoService>();
+}
 
 // Carrinho de compras: Scoped = um carrinho por usuário (por circuito SignalR).
 // Se fosse Singleton, todos os usuários dividiriam o mesmo carrinho.
@@ -96,20 +153,58 @@ builder.Services.AddHttpClient("self")
 
 builder.Services.AddIdentityCore<ApplicationUser>(options =>
     {
-        options.SignIn.RequireConfirmedAccount = true;
+        options.SignIn.RequireConfirmedAccount = false;   // DEV: registra e já entra (sem confirmar e-mail)
         options.Stores.SchemaVersion = IdentitySchemaVersions.Version3;
     })
+    .AddRoles<IdentityRole>()                                            // habilita papéis (Admin/Cliente)
     .AddEntityFrameworkStores<ApplicationDbContext>()
     .AddSignInManager()
+    .AddClaimsPrincipalFactory<ApplicationUserClaimsPrincipalFactory>()   // adiciona claim "nome" + roles
     .AddDefaultTokenProviders();
 
 builder.Services.AddSingleton<IEmailSender<ApplicationUser>, IdentityNoOpEmailSender>();
 
 // Nosso serviço de e-mail (confirmação de pedido). Singleton: caixa de saída única do app.
-// Hoje é simulado (guarda em memória); na Fase 6 vira Gmail SMTP, sem mudar a interface.
-builder.Services.AddSingleton<IEmailService, EmailSimuladoService>();
+// AQUI a interface paga o investimento: com credenciais do Gmail (user-secrets) usamos o
+// envio REAL (GmailSmtpService); sem elas, o simulado — e NENHUMA tela/serviço muda.
+//   dotnet user-secrets set "Gmail:Usuario"  "seuemail@gmail.com"
+//   dotnet user-secrets set "Gmail:SenhaApp" "xxxx xxxx xxxx xxxx"   (senha de APP, não a da conta)
+var gmailUsuario = builder.Configuration["Gmail:Usuario"];
+var gmailSenhaApp = builder.Configuration["Gmail:SenhaApp"];
+if (!string.IsNullOrWhiteSpace(gmailUsuario) && !string.IsNullOrWhiteSpace(gmailSenhaApp))
+{
+    builder.Services.AddSingleton<IEmailService>(sp => new GmailSmtpService(
+        gmailUsuario,
+        gmailSenhaApp.Replace(" ", ""),   // o Google mostra a senha com espaços; removemos
+        sp.GetRequiredService<ILogger<GmailSmtpService>>()));
+}
+else
+{
+    builder.Services.AddSingleton<IEmailService, EmailSimuladoService>();
+}
 
 var app = builder.Build();
+
+// ---- Seed de papéis (roles) + concede "Admin" ao e-mail configurado (Admin:Email) ----
+// Roda no start: garante que as roles existem e que o dono é Admin. Idempotente.
+await using (var scope = app.Services.CreateAsyncScope())
+{
+    var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
+    foreach (var papel in new[] { "Admin", "Cliente" })
+    {
+        if (!await roleManager.RoleExistsAsync(papel))
+            await roleManager.CreateAsync(new IdentityRole(papel));
+    }
+
+    var adminEmail = app.Configuration["Admin:Email"];
+    if (!string.IsNullOrWhiteSpace(adminEmail))
+    {
+        var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+        var admin = await userManager.FindByEmailAsync(adminEmail);
+        if (admin is not null && !await userManager.IsInRoleAsync(admin, "Admin"))
+            await userManager.AddToRoleAsync(admin, "Admin");
+    }
+}
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())

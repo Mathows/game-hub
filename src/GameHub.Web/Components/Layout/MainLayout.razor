@@ -14,7 +14,10 @@
                 <NavLink class="pg-nav-link" href="catalogo">Comprar</NavLink>
                 <NavLink class="pg-nav-link" href="catalogo">Alugar</NavLink>
                 <NavLink class="pg-nav-link" href="trocas">Trocar</NavLink>
-                <NavLink class="pg-nav-link" href="admin/jogos">Admin</NavLink>
+                @* O link Admin só aparece para quem tem o papel "Admin". *@
+                <AuthorizeView Roles="Admin">
+                    <NavLink class="pg-nav-link" href="admin/jogos">Admin</NavLink>
+                </AuthorizeView>
             </nav>
 
             <div class="pg-header-actions">
@@ -24,7 +27,17 @@
                     <Authorized>
                         <NotificacaoListener @rendermode="InteractiveServer" />
                         <a class="pg-nav-link" href="meus-pedidos">Meus Pedidos</a>
-                        <a class="pg-nav-link" href="Account/Manage">@context.User.Identity?.Name</a>
+                        <a class="pg-nav-link" href="minha-conta/enderecos">Endereços</a>
+                        @* Mostra o NOME da pessoa (claim "nome"); se não tiver, cai no e-mail. *@
+                        <a class="pg-nav-link" href="Account/Manage">@(context.User.FindFirst("nome")?.Value ?? context.User.Identity?.Name)</a>
+                        @* Sair: logout é um POST (com antiforgery) pra Account/Logout — nunca um link GET,
+                           senão qualquer site conseguiria te deslogar. ReturnUrl vazio volta pra home. *@
+                        <form action="Account/Logout" method="post" class="pg-logout-form">
+                            <AntiforgeryToken />
+                            <input type="hidden" name="ReturnUrl" value="" />
+                            <button type="submit" class="pg-nav-link pg-logout-btn"
+                                    style="background:none;border:none;cursor:pointer;font:inherit;">Sair</button>
+                        </form>
                     </Authorized>
                     <NotAuthorized>
                         <a class="pg-nav-link" href="Account/Login">Entrar</a>

@@ -1,9 +1,10 @@
 using GameHub.Domain.Enums;
+using GameHub.Domain.Interfaces;
 
 namespace GameHub.Domain.Entities;
 
 /// <summary>Um jogo do catálogo da loja — o item central que se vende, aluga e troca.</summary>
-public class Jogo
+public class Jogo : IAuditavel
 {
     public int Id { get; set; }
 
@@ -28,4 +29,10 @@ public class Jogo
 
     public int GeneroId { get; set; }
     public Genero? Genero { get; set; }
+
+    // --- Auditoria (preenchida automaticamente pelo AuditoriaInterceptor) ---
+    public DateTime CriadoEm { get; set; }
+    public string? CriadoPor { get; set; }
+    public DateTime? AtualizadoEm { get; set; }
+    public string? AtualizadoPor { get; set; }
 }

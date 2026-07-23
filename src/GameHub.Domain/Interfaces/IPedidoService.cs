@@ -12,7 +12,11 @@ public record ItemCompra(int JogoId, int Quantidade);
 /// </summary>
 public interface IPedidoService
 {
-    Task<Pedido> FinalizarCompraAsync(string applicationUserId, string nomeCliente, IReadOnlyList<ItemCompra> itens);
+    /// <param name="enderecoEntrega">
+    /// Snapshot do endereço de entrega escolhido no checkout (cópia — ver Sistema.md §5.1).
+    /// Pode ser null (ex.: carrinho sem endereço definido).
+    /// </param>
+    Task<Pedido> FinalizarCompraAsync(string applicationUserId, string nomeCliente, IReadOnlyList<ItemCompra> itens, EnderecoEntrega? enderecoEntrega);
 
     /// <summary>Lista os pedidos de um usuário (mais recentes primeiro), com itens e jogos.</summary>
     Task<List<Pedido>> ObterPorUsuarioAsync(string applicationUserId);
