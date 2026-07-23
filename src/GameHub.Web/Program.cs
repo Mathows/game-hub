@@ -147,8 +147,23 @@ builder.Services.AddIdentityCore<ApplicationUser>(options =>
 builder.Services.AddSingleton<IEmailSender<ApplicationUser>, IdentityNoOpEmailSender>();
 
 // Nosso serviço de e-mail (confirmação de pedido). Singleton: caixa de saída única do app.
-// Hoje é simulado (guarda em memória); na Fase 6 vira Gmail SMTP, sem mudar a interface.
-builder.Services.AddSingleton<IEmailService, EmailSimuladoService>();
+// AQUI a interface paga o investimento: com credenciais do Gmail (user-secrets) usamos o
+// envio REAL (GmailSmtpService); sem elas, o simulado — e NENHUMA tela/serviço muda.
+//   dotnet user-secrets set "Gmail:Usuario"  "seuemail@gmail.com"
+//   dotnet user-secrets set "Gmail:SenhaApp" "xxxx xxxx xxxx xxxx"   (senha de APP, não a da conta)
+var gmailUsuario = builder.Configuration["Gmail:Usuario"];
+var gmailSenhaApp = builder.Configuration["Gmail:SenhaApp"];
+if (!string.IsNullOrWhiteSpace(gmailUsuario) && !string.IsNullOrWhiteSpace(gmailSenhaApp))
+{
+    builder.Services.AddSingleton<IEmailService>(sp => new GmailSmtpService(
+        gmailUsuario,
+        gmailSenhaApp.Replace(" ", ""),   // o Google mostra a senha com espaços; removemos
+        sp.GetRequiredService<ILogger<GmailSmtpService>>()));
+}
+else
+{
+    builder.Services.AddSingleton<IEmailService, EmailSimuladoService>();
+}
 
 var app = builder.Build();
 
