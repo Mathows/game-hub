@@ -21,7 +21,7 @@ public class PedidoService : IPedidoService
         _context = context;
     }
 
-    public async Task<Pedido> FinalizarCompraAsync(string applicationUserId, string nomeCliente, IReadOnlyList<ItemCompra> itens, EnderecoEntrega? enderecoEntrega)
+    public async Task<Pedido> FinalizarCompraAsync(string applicationUserId, string nomeCliente, IReadOnlyList<ItemCompra> itens, EnderecoEntrega? enderecoEntrega, string? cupomCodigo = null)
     {
         if (itens is null || itens.Count == 0)
             throw new InvalidOperationException("Não há itens de compra no carrinho.");
@@ -78,6 +78,23 @@ public class PedidoService : IPedidoService
                 };
                 pedido.Itens.Add(itemPedido);
                 total += itemPedido.PrecoUnitario * itemPedido.Quantidade;
+            }
+
+            // ---- Cupom: a validação QUE VALE (dentro da transação; a prévia do carrinho
+            // é só cortesia). A tela mandou o CÓDIGO — o desconto é calculado AQUI. ----
+            if (!string.IsNullOrWhiteSpace(cupomCodigo))
+            {
+                var codigo = cupomCodigo.Trim().ToUpperInvariant();
+                var cupom = await _context.Cupons.FirstOrDefaultAsync(c => c.Codigo == codigo)
+                    ?? throw new InvalidOperationException($"Cupom \"{codigo}\" não encontrado.");
+
+                if (!cupom.ValidoEm(agora))
+                    throw new InvalidOperationException($"O cupom \"{codigo}\" não está mais válido.");
+
+                pedido.Cupom = cupom;
+                pedido.Desconto = cupom.CalcularDesconto(total);   // desconto CONGELADO (snapshot)
+                cupom.Usos++;                                      // consome 1 uso (na mesma transação!)
+                total -= pedido.Desconto;
             }
 
             pedido.ValorTotal = total;

@@ -21,6 +21,12 @@ public class Pedido : IAuditavel
     // Nulo enquanto o pedido não tem entrega definida (ex.: pedidos antigos).
     public EnderecoEntrega? EnderecoEntrega { get; set; }
 
+    // Cupom aplicado (se houver) + o desconto CONGELADO em R$ no momento da compra.
+    // Guardamos o valor calculado (snapshot) — se o cupom mudar depois, o pedido não muda.
+    public int? CupomId { get; set; }
+    public Cupom? Cupom { get; set; }
+    public decimal Desconto { get; set; }
+
     // Os itens (jogos) deste pedido — um pedido tem vários itens.
     public ICollection<ItemPedido> Itens { get; set; } = new List<ItemPedido>();
 

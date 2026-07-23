@@ -20,6 +20,7 @@ public class GameHubDbContext : DbContext
     // Cada DbSet<T> representa uma TABELA no banco.
     public DbSet<Jogo> Jogos => Set<Jogo>();
     public DbSet<Promocao> Promocoes => Set<Promocao>();
+    public DbSet<Cupom> Cupons => Set<Cupom>();
     public DbSet<Plataforma> Plataformas => Set<Plataforma>();
     public DbSet<Genero> Generos => Set<Genero>();
     public DbSet<Cliente> Clientes => Set<Cliente>();
@@ -73,6 +74,24 @@ public class GameHubDbContext : DbContext
              .OnDelete(DeleteBehavior.Cascade);   // apagou o jogo → promoções dele vão junto
             p.HasIndex(x => new { x.JogoId, x.Ativa }).HasDatabaseName("IX_Promocao_Jogo_Ativa");
         });
+
+        // ---- Cupom de desconto ----
+        // Código ÚNICO no banco (índice unique): dois cupons "NATAL10" não podem existir —
+        // regra garantida pelo SCHEMA, não só pelo código (lição do Sistema.md §5.1/§5.2).
+        modelBuilder.Entity<Cupom>(c =>
+        {
+            c.Property(x => x.Codigo).HasMaxLength(30).IsRequired();
+            c.HasIndex(x => x.Codigo).IsUnique().HasDatabaseName("UX_Cupom_Codigo");
+            c.Property(x => x.Valor).HasPrecision(10, 2);
+        });
+
+        // Pedido → Cupom: FK opcional, Restrict (não apagar cupom usado em pedido = histórico).
+        modelBuilder.Entity<Pedido>()
+            .HasOne(p => p.Cupom)
+            .WithMany()
+            .HasForeignKey(p => p.CupomId)
+            .OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<Pedido>().Property(p => p.Desconto).HasPrecision(10, 2);
 
         // ---- Endereço de ENTREGA do pedido: owned type (snapshot embutido no Pedido). ----
         // Vira colunas EnderecoEntrega_Cep, _Logradouro... na própria tabela Pedido.
