@@ -1,0 +1,186 @@
+@page "/admin/promocoes"
+@rendermode InteractiveServer
+@using Microsoft.EntityFrameworkCore
+@using GameHub.Domain.Entities
+@using GameHub.Infrastructure.Data
+@inject GameHubDbContext Db
+
+<PageTitle>Promoções — Admin GameHub</PageTitle>
+
+<div class="pg-section-head">
+    <h1>Gerenciar <span class="gold">Promoções</span></h1>
+    <a class="pg-btn pg-btn-outline" href="admin/jogos">← Jogos</a>
+</div>
+
+@if (mensagem is not null)
+{
+    <div class="pg-toast">@mensagem</div>
+}
+
+<div style="display:flex; gap:2rem; flex-wrap:wrap; align-items:flex-start;">
+
+    @* ---- Promoções cadastradas ---- *@
+    <div style="flex:2 1 420px;">
+        @if (promocoes is null)
+        {
+            <p class="pg-muted">Carregando...</p>
+        }
+        else if (promocoes.Count == 0)
+        {
+            <div class="pg-empty">Nenhuma promoção cadastrada.</div>
+        }
+        else
+        {
+            <table class="pg-table">
+                <thead>
+                    <tr><th>Jogo</th><th>Campanha</th><th>Preço promo</th><th>Vigência</th><th>Status</th><th></th></tr>
+                </thead>
+                <tbody>
+                    @foreach (var p in promocoes)
+                    {
+                        <tr>
+                            <td>@p.Jogo?.Titulo</td>
+                            <td>@p.Nome</td>
+                            <td>R$ @p.PrecoPromocional.ToString("N2") <s style="opacity:.5;">@p.Jogo?.PrecoVenda.ToString("N2")</s></td>
+                            <td>@p.Inicio.ToString("dd/MM/yy") → @p.Fim.ToString("dd/MM/yy")</td>
+                            <td>
+                                @if (p.VigenteEm(DateTime.Now))
+                                {
+                                    <span class="gold">🔥 Vigente</span>
+                                }
+                                else if (!p.Ativa)
+                                {
+                                    <span class="pg-muted">Desativada</span>
+                                }
+                                else if (DateTime.Now < p.Inicio)
+                                {
+                                    <span class="pg-muted">Agendada</span>
+                                }
+                                else
+                                {
+                                    <span class="pg-muted">Encerrada</span>
+                                }
+                            </td>
+                            <td style="text-align:right;">
+                                @if (p.Ativa)
+                                {
+                                    <button class="pg-btn pg-btn-ghost" @onclick="() => Desativar(p.Id)">Desativar</button>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+    </div>
+
+    @* ---- Nova promoção ---- *@
+    <div style="flex:1 1 300px;">
+        <h2 class="gold">Nova promoção</h2>
+
+        <label>Jogo</label>
+        <select class="pg-input" @bind="form.JogoId">
+            <option value="0">— escolha —</option>
+            @if (jogos is not null)
+            {
+                @foreach (var j in jogos)
+                {
+                    <option value="@j.Id">@j.Titulo (R$ @j.PrecoVenda.ToString("N2"))</option>
+                }
+            }
+        </select>
+
+        <label>Nome da campanha</label>
+        <input class="pg-input" @bind="form.Nome" placeholder="Ex.: Black Friday" />
+
+        <label>Preço promocional (R$)</label>
+        <input class="pg-input" type="number" step="0.01" min="0" @bind="form.Preco" />
+
+        <label>Início</label>
+        <input class="pg-input" type="date" @bind="form.Inicio" />
+
+        <label>Fim</label>
+        <input class="pg-input" type="date" @bind="form.Fim" />
+
+        <button class="pg-btn pg-btn-gold" style="margin-top:1rem;" @onclick="Salvar" disabled="@ocupado">
+            Criar promoção
+        </button>
+    </div>
+</div>
+
+@code {
+    private List<Promocao>? promocoes;
+    private List<Jogo>? jogos;
+    private string? mensagem;
+    private bool ocupado;
+    private FormModel form = new();
+
+    protected override async Task OnInitializedAsync() => await CarregarAsync();
+
+    private async Task CarregarAsync()
+    {
+        jogos = await Db.Jogos.AsNoTracking().OrderBy(j => j.Titulo).ToListAsync();
+        promocoes = await Db.Promocoes.AsNoTracking()
+            .Include(p => p.Jogo)
+            .OrderByDescending(p => p.Id)
+            .ToListAsync();
+    }
+
+    private async Task Salvar()
+    {
+        mensagem = null;
+
+        // Validações de negócio (no servidor, como sempre).
+        var jogo = jogos?.FirstOrDefault(j => j.Id == form.JogoId);
+        if (jogo is null) { mensagem = "⚠️ Escolha um jogo."; return; }
+        if (string.IsNullOrWhiteSpace(form.Nome)) { mensagem = "⚠️ Dê um nome à campanha."; return; }
+        if (form.Preco <= 0 || form.Preco >= jogo.PrecoVenda)
+        {
+            mensagem = $"⚠️ O preço promocional deve ser MENOR que o preço normal (R$ {jogo.PrecoVenda:N2}).";
+            return;
+        }
+        if (form.Fim < form.Inicio) { mensagem = "⚠️ O fim não pode ser antes do início."; return; }
+
+        ocupado = true;
+        try
+        {
+            Db.Promocoes.Add(new Promocao
+            {
+                JogoId = form.JogoId,
+                Nome = form.Nome.Trim(),
+                PrecoPromocional = form.Preco,
+                Inicio = form.Inicio.Date,                          // começa à meia-noite
+                Fim = form.Fim.Date.AddDays(1).AddSeconds(-1),      // vale até 23:59:59 do dia
+                Ativa = true
+            });
+            await Db.SaveChangesAsync();   // a auditoria carimba CriadoEm/CriadoPor sozinha!
+            mensagem = "✅ Promoção criada.";
+            form = new();
+            await CarregarAsync();
+        }
+        catch (Exception ex)
+        {
+            mensagem = "⚠️ Erro ao salvar: " + ex.Message;
+        }
+        finally { ocupado = false; }
+    }
+
+    private async Task Desativar(int id)
+    {
+        var promo = await Db.Promocoes.FirstOrDefaultAsync(p => p.Id == id);
+        if (promo is null) return;
+        promo.Ativa = false;               // não apagamos: desativar preserva o histórico
+        await Db.SaveChangesAsync();       // auditoria carimba AtualizadoEm/AtualizadoPor
+        mensagem = $"Promoção \"{promo.Nome}\" desativada.";
+        await CarregarAsync();
+    }
+
+    private sealed class FormModel
+    {
+        public int JogoId { get; set; }
+        public string Nome { get; set; } = "";
+        public decimal Preco { get; set; }
+        public DateTime Inicio { get; set; } = DateTime.Today;
+        public DateTime Fim { get; set; } = DateTime.Today.AddDays(7);
+    }
+}

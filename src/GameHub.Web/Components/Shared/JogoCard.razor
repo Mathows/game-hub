@@ -14,10 +14,25 @@
         {
             <span class="pg-badge">@Jogo.Plataforma.Nome</span>
         }
+        @if (promocao is not null)
+        {
+            <span class="pg-badge" style="right:auto;left:.5rem;background:#b32121;color:#fff;border-color:#b32121;">🔥 PROMOÇÃO</span>
+        }
     </a>
     <div class="pg-card-body">
         <div class="pg-card-title">@Jogo.Titulo</div>
-        <div class="pg-card-price">R$ @Jogo.PrecoVenda.ToString("N2")</div>
+        @if (promocao is not null)
+        {
+            @* Preço antigo riscado + preço promocional em destaque. *@
+            <div class="pg-card-price">
+                <s style="opacity:.5;font-size:.85em;">R$ @Jogo.PrecoVenda.ToString("N2")</s>
+                <span class="gold"> R$ @promocao.PrecoPromocional.ToString("N2")</span>
+            </div>
+        }
+        else
+        {
+            <div class="pg-card-price">R$ @Jogo.PrecoVenda.ToString("N2")</div>
+        }
         <div class="pg-card-meta">Aluguel: R$ @Jogo.PrecoAluguelDia.ToString("N2") / dia</div>
         <div class="pg-card-actions">
             <a class="pg-btn pg-btn-gold" href="jogo/@Jogo.Id">Comprar</a>
@@ -29,4 +44,7 @@
 @code {
     // O card recebe o jogo de fora (parâmetro obrigatório).
     [Parameter, EditorRequired] public Jogo Jogo { get; set; } = default!;
+
+    // Promoção vigente (o repositório já traz só as ativas via filtered include).
+    private Promocao? promocao => Jogo.PromocaoVigente(DateTime.Now);
 }

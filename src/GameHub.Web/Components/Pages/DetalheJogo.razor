@@ -37,7 +37,19 @@ else
 
             <p>@(string.IsNullOrWhiteSpace(jogo.Descricao) ? "Sem descrição cadastrada." : jogo.Descricao)</p>
 
-            <div class="pg-price-lg">R$ @jogo.PrecoVenda.ToString("N2")</div>
+            @{ var promocao = jogo.PromocaoVigente(DateTime.Now); }
+            @if (promocao is not null)
+            {
+                <div class="pg-price-lg">
+                    <s style="opacity:.5;font-size:.7em;">R$ @jogo.PrecoVenda.ToString("N2")</s>
+                    R$ @promocao.PrecoPromocional.ToString("N2")
+                    <span class="pg-badge" style="position:static;background:#b32121;color:#fff;border-color:#b32121;">🔥 @promocao.Nome</span>
+                </div>
+            }
+            else
+            {
+                <div class="pg-price-lg">R$ @jogo.PrecoVenda.ToString("N2")</div>
+            }
             <p class="pg-muted">
                 Aluguel: R$ @jogo.PrecoAluguelDia.ToString("N2") / dia • Em estoque: @jogo.QuantidadeEstoque
             </p>

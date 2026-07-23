@@ -19,6 +19,7 @@ public class GameHubDbContext : DbContext
 
     // Cada DbSet<T> representa uma TABELA no banco.
     public DbSet<Jogo> Jogos => Set<Jogo>();
+    public DbSet<Promocao> Promocoes => Set<Promocao>();
     public DbSet<Plataforma> Plataformas => Set<Plataforma>();
     public DbSet<Genero> Generos => Set<Genero>();
     public DbSet<Cliente> Clientes => Set<Cliente>();
@@ -57,6 +58,20 @@ public class GameHubDbContext : DbContext
              .WithMany(c => c.Enderecos)
              .HasForeignKey(x => x.ClienteId)
              .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        // ---- Promoção: Jogo (1) → Promocao (N). FK na Promocao (lado "muitos"). ----
+        // Índice nomeado DE PROPÓSITO (nada de _dta_index_ do legado): a consulta típica é
+        // "promoções vigentes deste jogo" → índice por (JogoId, Ativa).
+        modelBuilder.Entity<Promocao>(p =>
+        {
+            p.Property(x => x.Nome).HasMaxLength(100).IsRequired();
+            p.Property(x => x.PrecoPromocional).HasPrecision(10, 2);
+            p.HasOne(x => x.Jogo)
+             .WithMany(j => j.Promocoes)
+             .HasForeignKey(x => x.JogoId)
+             .OnDelete(DeleteBehavior.Cascade);   // apagou o jogo → promoções dele vão junto
+            p.HasIndex(x => new { x.JogoId, x.Ativa }).HasDatabaseName("IX_Promocao_Jogo_Ativa");
         });
 
         // ---- Endereço de ENTREGA do pedido: owned type (snapshot embutido no Pedido). ----

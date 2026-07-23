@@ -77,7 +77,9 @@ public class CarrinhoService
                 UrlFoto = jogo.UrlFoto,
                 Tipo = TipoAquisicao.Compra,
                 Quantidade = quantidade,
-                PrecoUnitario = jogo.PrecoVenda
+                // Preço VIGENTE (promocional se houver promoção ativa). Aqui é exibição/
+                // conveniência: quem manda no preço cobrado é o PedidoService (servidor).
+                PrecoUnitario = jogo.PrecoVigente(DateTime.Now)
             });
         }
         NotificarMudanca();

@@ -53,9 +53,14 @@ public class PedidoService : IPedidoService
 
             decimal total = 0m;
 
+            var agora = DateTime.Now;
             foreach (var item in itens)
             {
-                var jogo = await _context.Jogos.FirstOrDefaultAsync(j => j.Id == item.JogoId)
+                // Traz as promoções vigentes junto: o preço cobrado é decidido AQUI (servidor),
+                // nunca o que veio da tela — segurança básica de e-commerce.
+                var jogo = await _context.Jogos
+                    .Include(j => j.Promocoes.Where(p => p.Ativa && p.Inicio <= agora && agora <= p.Fim))
+                    .FirstOrDefaultAsync(j => j.Id == item.JogoId)
                     ?? throw new InvalidOperationException($"Jogo {item.JogoId} não encontrado.");
 
                 // Regra de negócio: não vender mais do que tem em estoque.
@@ -69,7 +74,7 @@ public class PedidoService : IPedidoService
                 {
                     Jogo = jogo,
                     Quantidade = item.Quantidade,
-                    PrecoUnitario = jogo.PrecoVenda          // preço "congelado" no momento da compra
+                    PrecoUnitario = jogo.PrecoVigente(agora)  // preço VIGENTE, congelado no momento da compra
                 };
                 pedido.Itens.Add(itemPedido);
                 total += itemPedido.PrecoUnitario * itemPedido.Quantidade;
