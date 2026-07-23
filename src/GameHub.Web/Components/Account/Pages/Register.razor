@@ -14,6 +14,7 @@
 @inject ILogger<Register> Logger
 @inject NavigationManager NavigationManager
 @inject IdentityRedirectManager RedirectManager
+@inject GameHub.Web.Services.IRecaptchaService Recaptcha
 
 <PageTitle>Register</PageTitle>
 
@@ -42,6 +43,9 @@
                 <label for="Input.ConfirmPassword">Confirm Password</label>
                 <ValidationMessage For="() => Input.ConfirmPassword" class="text-danger" />
             </div>
+            @* reCAPTCHA v3: o JS (recaptcha-register.js) preenche este campo com o token
+               no submit; o servidor valida o token no RegisterUser. Invisível pro usuário. *@
+            <input type="hidden" name="Input.RecaptchaToken" id="recaptcha-token" value="@Input.RecaptchaToken" />
             <button type="submit" class="w-100 btn btn-lg btn-primary">Register</button>
         </EditForm>
     </div>
@@ -72,6 +76,14 @@
 
     public async Task RegisterUser(EditContext editContext)
     {
+        // Anti-robô ANTES de qualquer coisa: valida o token do reCAPTCHA v3 com o Google.
+        // (Sem chaves configuradas, o serviço registrado é o "desativado" e sempre aprova.)
+        if (!await Recaptcha.VerificarAsync(Input.RecaptchaToken))
+        {
+            identityErrors = [new IdentityError { Description = "Não foi possível confirmar que você não é um robô. Recarregue a página e tente novamente." }];
+            return;
+        }
+
         var user = CreateUser();
 
         await UserStore.SetUserNameAsync(user, Input.Email, CancellationToken.None);
@@ -148,5 +160,8 @@
         [Display(Name = "Confirm password")]
         [Compare("Password", ErrorMessage = "The password and confirmation password do not match.")]
         public string ConfirmPassword { get; set; } = "";
+
+        /// <summary>Token do reCAPTCHA v3 (preenchido pelo JS no submit; sem validação de UI).</summary>
+        public string? RecaptchaToken { get; set; }
     }
 }

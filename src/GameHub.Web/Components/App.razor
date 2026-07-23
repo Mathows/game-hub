@@ -19,6 +19,21 @@
     <ReconnectModal />
     <script src="@Assets["_framework/blazor.web.js"]"></script>
     <script src="@Assets["Components/Account/Shared/PasskeySubmit.razor.js"]" type="module"></script>
+
+    @* reCAPTCHA v3: só entra se houver SiteKey configurada (a SiteKey é pública, pode ficar
+       no appsettings; a SECRET fica no user-secrets). Precisa vir DEPOIS do blazor.web.js,
+       porque o nosso script escuta o evento 'enhancedload' do Blazor. *@
+    @if (!string.IsNullOrWhiteSpace(recaptchaSiteKey))
+    {
+        <script>window.__recaptchaSiteKey = '@recaptchaSiteKey';</script>
+        <script src="https://www.google.com/recaptcha/api.js?render=@recaptchaSiteKey"></script>
+        <script src="@Assets["js/recaptcha-register.js"]"></script>
+    }
 </body>
 
 </html>
+
+@code {
+    [Inject] private IConfiguration Config { get; set; } = default!;
+    private string? recaptchaSiteKey => Config["Recaptcha:SiteKey"];
+}

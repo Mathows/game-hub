@@ -89,6 +89,24 @@ builder.Services.AddScoped<IEnderecoService, EnderecoService>();
 builder.Services.AddHttpClient<ICepService, ViaCepService>(c =>
     c.BaseAddress = new Uri("https://viacep.com.br/"));
 
+// reCAPTCHA v3 (anti-robô no cadastro). Mesmo padrão condicional do Google/Gmail:
+// com a SECRET (user-secrets "Recaptcha:SecretKey") usa a verificação real no Google;
+// sem ela, o serviço "desativado" (sempre aprova) — o app roda nos dois modos.
+// A SiteKey (pública) fica no appsettings ("Recaptcha:SiteKey") e vai pro script da página.
+var recaptchaSecret = builder.Configuration["Recaptcha:SecretKey"];
+if (!string.IsNullOrWhiteSpace(recaptchaSecret))
+{
+    builder.Services.AddHttpClient("recaptcha", c => c.BaseAddress = new Uri("https://www.google.com/"));
+    builder.Services.AddScoped<IRecaptchaService>(sp => new RecaptchaGoogleService(
+        sp.GetRequiredService<IHttpClientFactory>().CreateClient("recaptcha"),
+        recaptchaSecret,
+        sp.GetRequiredService<ILogger<RecaptchaGoogleService>>()));
+}
+else
+{
+    builder.Services.AddSingleton<IRecaptchaService, RecaptchaDesativadoService>();
+}
+
 // Carrinho de compras: Scoped = um carrinho por usuário (por circuito SignalR).
 // Se fosse Singleton, todos os usuários dividiriam o mesmo carrinho.
 builder.Services.AddScoped<CarrinhoService>();
