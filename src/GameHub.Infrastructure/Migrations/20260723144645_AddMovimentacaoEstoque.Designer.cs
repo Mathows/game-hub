@@ -4,6 +4,7 @@ using GameHub.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace GameHub.Infrastructure.Migrations
 {
     [DbContext(typeof(GameHubDbContext))]
-    partial class GameHubDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260723144645_AddMovimentacaoEstoque")]
+    partial class AddMovimentacaoEstoque
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -412,107 +415,6 @@ namespace GameHub.Infrastructure.Migrations
                         });
                 });
 
-            modelBuilder.Entity("GameHub.Domain.Entities.MotivoMovimentacao", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<bool>("Ativo")
-                        .HasColumnType("bit");
-
-                    b.Property<DateTime?>("AtualizadoEm")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("AtualizadoPor")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<DateTime>("CriadoEm")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("CriadoPor")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("Descricao")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
-                    b.Property<int>("Operacao")
-                        .HasColumnType("int");
-
-                    b.HasKey("Id");
-
-                    b.ToTable("MotivosMovimentacao");
-
-                    b.HasData(
-                        new
-                        {
-                            Id = 1,
-                            Ativo = true,
-                            CriadoEm = new DateTime(2026, 6, 24, 0, 0, 0, 0, DateTimeKind.Unspecified),
-                            CriadoPor = "seed",
-                            Descricao = "Compra de fornecedor",
-                            Operacao = 1
-                        },
-                        new
-                        {
-                            Id = 2,
-                            Ativo = true,
-                            CriadoEm = new DateTime(2026, 6, 24, 0, 0, 0, 0, DateTimeKind.Unspecified),
-                            CriadoPor = "seed",
-                            Descricao = "Devolução de cliente",
-                            Operacao = 1
-                        },
-                        new
-                        {
-                            Id = 3,
-                            Ativo = true,
-                            CriadoEm = new DateTime(2026, 6, 24, 0, 0, 0, 0, DateTimeKind.Unspecified),
-                            CriadoPor = "seed",
-                            Descricao = "Ajuste de inventário (sobra)",
-                            Operacao = 1
-                        },
-                        new
-                        {
-                            Id = 4,
-                            Ativo = true,
-                            CriadoEm = new DateTime(2026, 6, 24, 0, 0, 0, 0, DateTimeKind.Unspecified),
-                            CriadoPor = "seed",
-                            Descricao = "Produto danificado",
-                            Operacao = 2
-                        },
-                        new
-                        {
-                            Id = 5,
-                            Ativo = true,
-                            CriadoEm = new DateTime(2026, 6, 24, 0, 0, 0, 0, DateTimeKind.Unspecified),
-                            CriadoPor = "seed",
-                            Descricao = "Devolução ao fornecedor",
-                            Operacao = 2
-                        },
-                        new
-                        {
-                            Id = 6,
-                            Ativo = true,
-                            CriadoEm = new DateTime(2026, 6, 24, 0, 0, 0, 0, DateTimeKind.Unspecified),
-                            CriadoPor = "seed",
-                            Descricao = "Ajuste de inventário (falta)",
-                            Operacao = 2
-                        },
-                        new
-                        {
-                            Id = 7,
-                            Ativo = true,
-                            CriadoEm = new DateTime(2026, 6, 24, 0, 0, 0, 0, DateTimeKind.Unspecified),
-                            CriadoPor = "seed",
-                            Descricao = "Perda/extravio",
-                            Operacao = 2
-                        });
-                });
-
             modelBuilder.Entity("GameHub.Domain.Entities.MovimentacaoEstoque", b =>
                 {
                     b.Property<int>("Id")
@@ -542,9 +444,6 @@ namespace GameHub.Infrastructure.Migrations
                     b.Property<int>("JogoId")
                         .HasColumnType("int");
 
-                    b.Property<int?>("MotivoId")
-                        .HasColumnType("int");
-
                     b.Property<string>("Observacao")
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
@@ -561,8 +460,6 @@ namespace GameHub.Infrastructure.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("AluguelId");
-
-                    b.HasIndex("MotivoId");
 
                     b.HasIndex("PedidoId");
 
@@ -830,11 +727,6 @@ namespace GameHub.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.HasOne("GameHub.Domain.Entities.MotivoMovimentacao", "Motivo")
-                        .WithMany()
-                        .HasForeignKey("MotivoId")
-                        .OnDelete(DeleteBehavior.Restrict);
-
                     b.HasOne("GameHub.Domain.Entities.Pedido", "Pedido")
                         .WithMany()
                         .HasForeignKey("PedidoId")
@@ -843,8 +735,6 @@ namespace GameHub.Infrastructure.Migrations
                     b.Navigation("Aluguel");
 
                     b.Navigation("Jogo");
-
-                    b.Navigation("Motivo");
 
                     b.Navigation("Pedido");
                 });

@@ -70,6 +70,18 @@ public class PedidoService : IPedidoService
 
                 jogo.QuantidadeEstoque -= item.Quantidade;   // BAIXA DE ESTOQUE
 
+                // EXTRATO: a baixa vira uma linha de movimentação, na MESMA transação —
+                // ou grava pedido + baixa + extrato, ou nada (nunca extrato "furado").
+                _context.MovimentacoesEstoque.Add(new MovimentacaoEstoque
+                {
+                    Jogo = jogo,
+                    Tipo = TipoMovimentacaoEstoque.Venda,
+                    Quantidade = -item.Quantidade,               // saída = negativa
+                    EstoqueDepois = jogo.QuantidadeEstoque,      // o "saldo" após o movimento
+                    Pedido = pedido,                             // referência (EF preenche o PedidoId ao salvar)
+                    Observacao = "Venda"
+                });
+
                 var itemPedido = new ItemPedido
                 {
                     Jogo = jogo,

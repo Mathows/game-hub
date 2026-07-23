@@ -21,6 +21,8 @@ public class GameHubDbContext : DbContext
     public DbSet<Jogo> Jogos => Set<Jogo>();
     public DbSet<Promocao> Promocoes => Set<Promocao>();
     public DbSet<Cupom> Cupons => Set<Cupom>();
+    public DbSet<MovimentacaoEstoque> MovimentacoesEstoque => Set<MovimentacaoEstoque>();
+    public DbSet<MotivoMovimentacao> MotivosMovimentacao => Set<MotivoMovimentacao>();
     public DbSet<Plataforma> Plataformas => Set<Plataforma>();
     public DbSet<Genero> Generos => Set<Genero>();
     public DbSet<Cliente> Clientes => Set<Cliente>();
@@ -73,6 +75,25 @@ public class GameHubDbContext : DbContext
              .HasForeignKey(x => x.JogoId)
              .OnDelete(DeleteBehavior.Cascade);   // apagou o jogo → promoções dele vão junto
             p.HasIndex(x => new { x.JogoId, x.Ativa }).HasDatabaseName("IX_Promocao_Jogo_Ativa");
+        });
+
+        // ---- Extrato de estoque (MovimentacaoEstoque) ----
+        // Consulta típica: "extrato do jogo X, mais recente primeiro" → índice (JogoId, Id).
+        // Restrict em tudo: linha de extrato é HISTÓRICO — nunca some em cascata.
+        modelBuilder.Entity<MovimentacaoEstoque>(m =>
+        {
+            m.Property(x => x.Observacao).HasMaxLength(200);
+            m.HasOne(x => x.Jogo).WithMany().HasForeignKey(x => x.JogoId).OnDelete(DeleteBehavior.Restrict);
+            m.HasOne(x => x.Pedido).WithMany().HasForeignKey(x => x.PedidoId).OnDelete(DeleteBehavior.Restrict);
+            m.HasOne(x => x.Aluguel).WithMany().HasForeignKey(x => x.AluguelId).OnDelete(DeleteBehavior.Restrict);
+            m.HasIndex(x => new { x.JogoId, x.Id }).HasDatabaseName("IX_MovEstoque_Jogo");
+            m.HasOne(x => x.Motivo).WithMany().HasForeignKey(x => x.MotivoId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        // ---- Motivos de movimentação (tabela de LOOKUP — lista editável pelo admin) ----
+        modelBuilder.Entity<MotivoMovimentacao>(mm =>
+        {
+            mm.Property(x => x.Descricao).HasMaxLength(100).IsRequired();
         });
 
         // ---- Cupom de desconto ----
@@ -172,6 +193,17 @@ public class GameHubDbContext : DbContext
 
         // Data fixa no seed (o EF exige valor constante aqui, não pode ser DateTime.Now).
         var dataSeed = new DateTime(2026, 6, 24);
+
+        // Motivos "de fábrica" (o admin pode cadastrar outros pela tela — é a graça do lookup).
+        modelBuilder.Entity<MotivoMovimentacao>().HasData(
+            new MotivoMovimentacao { Id = 1, Descricao = "Compra de fornecedor", Operacao = OperacaoEstoque.Entrada, Ativo = true, CriadoEm = dataSeed, CriadoPor = "seed" },
+            new MotivoMovimentacao { Id = 2, Descricao = "Devolução de cliente", Operacao = OperacaoEstoque.Entrada, Ativo = true, CriadoEm = dataSeed, CriadoPor = "seed" },
+            new MotivoMovimentacao { Id = 3, Descricao = "Ajuste de inventário (sobra)", Operacao = OperacaoEstoque.Entrada, Ativo = true, CriadoEm = dataSeed, CriadoPor = "seed" },
+            new MotivoMovimentacao { Id = 4, Descricao = "Produto danificado", Operacao = OperacaoEstoque.Saida, Ativo = true, CriadoEm = dataSeed, CriadoPor = "seed" },
+            new MotivoMovimentacao { Id = 5, Descricao = "Devolução ao fornecedor", Operacao = OperacaoEstoque.Saida, Ativo = true, CriadoEm = dataSeed, CriadoPor = "seed" },
+            new MotivoMovimentacao { Id = 6, Descricao = "Ajuste de inventário (falta)", Operacao = OperacaoEstoque.Saida, Ativo = true, CriadoEm = dataSeed, CriadoPor = "seed" },
+            new MotivoMovimentacao { Id = 7, Descricao = "Perda/extravio", Operacao = OperacaoEstoque.Saida, Ativo = true, CriadoEm = dataSeed, CriadoPor = "seed" }
+        );
         modelBuilder.Entity<Jogo>().HasData(
             new Jogo { Id = 1, Titulo = "God of War", PlataformaId = 2, GeneroId = 1, Condicao = CondicaoJogo.Usado, PrecoVenda = 150m, PrecoAluguelDia = 15m, QuantidadeEstoque = 3, Disponivel = true, DataCadastro = dataSeed, CriadoEm = dataSeed, CriadoPor = "seed" },
             new Jogo { Id = 2, Titulo = "The Witcher 3", PlataformaId = 1, GeneroId = 2, Condicao = CondicaoJogo.Usado, PrecoVenda = 90m, PrecoAluguelDia = 10m, QuantidadeEstoque = 5, Disponivel = true, DataCadastro = dataSeed, CriadoEm = dataSeed, CriadoPor = "seed" },

@@ -1,0 +1,234 @@
+@page "/admin/estoque"
+@rendermode InteractiveServer
+@using Microsoft.AspNetCore.Identity
+@using GameHub.Domain.Entities
+@using GameHub.Domain.Enums
+@using GameHub.Web.Data
+@inject IJogoRepository JogoRepo
+@inject IEstoqueService EstoqueService
+@inject UserManager<ApplicationUser> UserManager
+
+<PageTitle>Estoque — Admin GameHub</PageTitle>
+
+<div class="pg-section-head">
+    <h1>Extrato de <span class="gold">Estoque</span></h1>
+    <a class="pg-btn pg-btn-outline" href="admin/jogos">← Jogos</a>
+</div>
+
+@if (mensagem is not null)
+{
+    <div class="pg-toast">@mensagem</div>
+}
+
+<label>Jogo</label>
+<select class="pg-input" style="max-width:420px;" value="@jogoSelecionadoId" @onchange="TrocarJogo">
+    <option value="0">— escolha um jogo —</option>
+    @if (jogos is not null)
+    {
+        @foreach (var j in jogos)
+        {
+            <option value="@j.Id">@j.Titulo (estoque: @j.QuantidadeEstoque)</option>
+        }
+    }
+</select>
+
+@if (jogoSelecionadoId > 0)
+{
+    <div style="display:flex; gap:2rem; flex-wrap:wrap; align-items:flex-start; margin-top:1.25rem;">
+
+        @* ---- O extrato ---- *@
+        <div style="flex:2 1 480px;">
+            @if (extrato is null)
+            {
+                <p class="pg-muted">Carregando...</p>
+            }
+            else if (extrato.Count == 0)
+            {
+                <div class="pg-empty">Sem movimentações ainda — o extrato começa a contar a partir de agora.</div>
+            }
+            else
+            {
+                <table class="pg-table">
+                    <thead>
+                        <tr><th>Quando</th><th>Tipo</th><th>Qtd</th><th>Saldo</th><th>Ref.</th><th>Motivo / Obs.</th><th>Quem</th></tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var m in extrato)
+                        {
+                            <tr>
+                                <td>@m.CriadoEm.ToString("dd/MM HH:mm")</td>
+                                <td>@RotuloTipo(m.Tipo)</td>
+                                <td style="color:@(m.Quantidade < 0 ? "#ff8a8a" : "#7CFC90");">
+                                    @(m.Quantidade > 0 ? "+" : "")@m.Quantidade
+                                </td>
+                                <td><strong>@m.EstoqueDepois</strong></td>
+                                <td class="pg-muted">
+                                    @(m.PedidoId is not null ? $"Pedido #{m.PedidoId}" :
+                                      m.AluguelId is not null ? $"Aluguel #{m.AluguelId}" : "—")
+                                </td>
+                                <td class="pg-muted">
+                                    @m.Motivo?.Descricao
+                                    @if (m.Motivo is not null && m.Observacao is not null)
+                                    {<text> — </text>}
+                                    @m.Observacao
+                                </td>
+                                <td class="pg-muted">@NomeDe(m.CriadoPor)</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+        </div>
+
+        @* ---- Ajuste manual ---- *@
+        <div style="flex:1 1 300px;">
+            <h2 class="gold">Ajuste manual</h2>
+
+            @* Operação (ENUM: fluxo fixo) filtra os Motivos (TABELA: lista editável). *@
+            <label>Operação</label>
+            <select class="pg-input" value="@operacao" @onchange="TrocarOperacao">
+                <option value="@OperacaoEstoque.Entrada">Entrada — reposição</option>
+                <option value="@OperacaoEstoque.Saida">Saída — perda/correção</option>
+            </select>
+
+            <label>Motivo</label>
+            <select class="pg-input" @bind="motivoId">
+                <option value="0">— escolha o motivo —</option>
+                @if (motivos is not null)
+                {
+                    @foreach (var mo in motivos)
+                    {
+                        <option value="@mo.Id">@mo.Descricao</option>
+                    }
+                }
+            </select>
+
+            <label>Quantidade</label>
+            <input class="pg-input" type="number" min="1" @bind="quantidade" />
+
+            <label>Observação (opcional)</label>
+            <input class="pg-input" @bind="observacao" placeholder="Detalhe extra, se precisar" />
+
+            <button class="pg-btn pg-btn-gold" style="margin-top:1rem;" @onclick="Ajustar" disabled="@ocupado">
+                Registrar ajuste
+            </button>
+
+            @* ---- Cadastrar motivo novo (a razão de ser da tabela de lookup!) ---- *@
+            <details style="margin-top:1.5rem;">
+                <summary class="pg-muted" style="cursor:pointer;">➕ Cadastrar novo motivo de @(operacao == OperacaoEstoque.Entrada ? "entrada" : "saída")</summary>
+                <div style="display:flex; gap:.5rem; margin-top:.5rem;">
+                    <input class="pg-input" @bind="novoMotivo" placeholder="Ex.: Brinde de campanha" />
+                    <button class="pg-btn pg-btn-outline" @onclick="CadastrarMotivo" disabled="@ocupado">Salvar</button>
+                </div>
+            </details>
+        </div>
+    </div>
+}
+
+@code {
+    private List<Jogo>? jogos;
+    private List<MovimentacaoEstoque>? extrato;
+    private List<MotivoMovimentacao>? motivos;
+    private Dictionary<string, string> nomes = new();   // cache: UserId → nome (auditoria legível)
+    private int jogoSelecionadoId;
+    private OperacaoEstoque operacao = OperacaoEstoque.Entrada;
+    private int motivoId;
+    private int quantidade = 1;
+    private string observacao = "";
+    private string novoMotivo = "";
+    private string? mensagem;
+    private bool ocupado;
+
+    protected override async Task OnInitializedAsync()
+    {
+        jogos = await JogoRepo.ObterTodosAsync();
+        await CarregarMotivosAsync();
+    }
+
+    private async Task CarregarMotivosAsync()
+    {
+        motivos = await EstoqueService.ObterMotivosAsync(operacao);
+        motivoId = 0;   // trocar a operação zera a escolha (os motivos são outros)
+    }
+
+    private async Task TrocarOperacao(ChangeEventArgs e)
+    {
+        operacao = Enum.TryParse<OperacaoEstoque>(e.Value?.ToString(), out var op) ? op : OperacaoEstoque.Entrada;
+        await CarregarMotivosAsync();
+    }
+
+    private async Task TrocarJogo(ChangeEventArgs e)
+    {
+        jogoSelecionadoId = int.TryParse(e.Value?.ToString(), out var id) ? id : 0;
+        mensagem = null;
+        await CarregarExtratoAsync();
+    }
+
+    private async Task CarregarExtratoAsync()
+    {
+        if (jogoSelecionadoId <= 0) { extrato = null; return; }
+        extrato = await EstoqueService.ExtratoAsync(jogoSelecionadoId);
+
+        // Resolve os UserIds da auditoria para NOMES (guardar Id, exibir nome — Fase 6).
+        foreach (var id in extrato.Select(m => m.CriadoPor).Where(i => i is not null).Distinct())
+        {
+            if (!nomes.ContainsKey(id!))
+            {
+                var u = await UserManager.FindByIdAsync(id!);
+                nomes[id!] = u is null ? id![..8] : ($"{u.Nome} {u.Sobrenome}".Trim() is { Length: > 0 } n && n != " " ? n : u.Email ?? id!);
+            }
+        }
+    }
+
+    private async Task Ajustar()
+    {
+        mensagem = null;
+        if (motivoId <= 0) { mensagem = "⚠️ Escolha o motivo do ajuste."; return; }
+        ocupado = true;
+        try
+        {
+            var qtd = operacao == OperacaoEstoque.Entrada ? Math.Abs(quantidade) : -Math.Abs(quantidade);
+            await EstoqueService.AjustarAsync(jogoSelecionadoId, qtd, motivoId, observacao);
+            mensagem = "✅ Ajuste registrado no extrato.";
+            quantidade = 1; observacao = ""; motivoId = 0;
+            jogos = await JogoRepo.ObterTodosAsync();   // atualiza o estoque no seletor
+            await CarregarExtratoAsync();
+        }
+        catch (Exception ex)
+        {
+            mensagem = "⚠️ " + ex.Message;
+        }
+        finally { ocupado = false; }
+    }
+
+    private async Task CadastrarMotivo()
+    {
+        mensagem = null;
+        ocupado = true;
+        try
+        {
+            await EstoqueService.CadastrarMotivoAsync(novoMotivo, operacao);
+            mensagem = $"✅ Motivo \"{novoMotivo.Trim()}\" cadastrado.";
+            novoMotivo = "";
+            await CarregarMotivosAsync();
+        }
+        catch (Exception ex)
+        {
+            mensagem = "⚠️ " + ex.Message;
+        }
+        finally { ocupado = false; }
+    }
+
+    private string NomeDe(string? userId) =>
+        userId is null ? "sistema" : (nomes.TryGetValue(userId, out var n) ? n : userId[..8]);
+
+    private static string RotuloTipo(TipoMovimentacaoEstoque t) => t switch
+    {
+        TipoMovimentacaoEstoque.Entrada => "📥 Entrada",
+        TipoMovimentacaoEstoque.Venda => "🛒 Venda",
+        TipoMovimentacaoEstoque.Aluguel => "🎮 Aluguel",
+        TipoMovimentacaoEstoque.DevolucaoAluguel => "↩️ Devolução",
+        TipoMovimentacaoEstoque.Ajuste => "🔧 Ajuste",
+        _ => t.ToString()
+    };
+}

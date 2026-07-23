@@ -52,8 +52,22 @@
     <label>Preço de aluguel por dia (R$)</label>
     <InputNumber class="pg-input" @bind-Value="Input.PrecoAluguelDia" />
 
-    <label>Quantidade em estoque</label>
-    <InputNumber class="pg-input" @bind-Value="Input.QuantidadeEstoque" />
+    @if (Id is null)
+    {
+        @* Jogo NOVO: informa o estoque inicial (o extrato passa a contar a partir dele). *@
+        <label>Estoque inicial</label>
+        <InputNumber class="pg-input" @bind-Value="Input.QuantidadeEstoque" />
+    }
+    else
+    {
+        @* Jogo EXISTENTE: o estoque só muda por MOVIMENTAÇÃO (venda, aluguel, ajuste) —
+           editar o número aqui criaria estoque "sem explicação", o erro do legado. *@
+        <label>Quantidade em estoque</label>
+        <input class="pg-input" value="@Input.QuantidadeEstoque" disabled />
+        <p class="pg-muted" style="font-size:.8rem;">
+            O estoque muda apenas por movimentação — use o <a href="admin/estoque">📦 extrato de estoque</a>.
+        </p>
+    }
 
     <label>URL da foto (opcional)</label>
     <InputText class="pg-input" @bind-Value="Input.UrlFoto" />
@@ -137,9 +151,11 @@
         jogo.Condicao = Input.Condicao;
         jogo.PrecoVenda = Input.PrecoVenda;
         jogo.PrecoAluguelDia = Input.PrecoAluguelDia;
-        jogo.QuantidadeEstoque = Input.QuantidadeEstoque;
+        // Estoque: só na CRIAÇÃO (estoque inicial). Depois, muda apenas por movimentação.
+        if (jogo.Id == 0)
+            jogo.QuantidadeEstoque = Input.QuantidadeEstoque;
         jogo.UrlFoto = Input.UrlFoto;
-        jogo.Disponivel = Input.QuantidadeEstoque > 0;
+        jogo.Disponivel = jogo.QuantidadeEstoque > 0;
     }
 
     // "Modelo de formulário" com as regras de validação (DataAnnotations).

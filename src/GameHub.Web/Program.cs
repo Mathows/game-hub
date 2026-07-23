@@ -87,6 +87,9 @@ builder.Services.AddScoped<IEnderecoService, EnderecoService>();
 // Cupom de desconto: prévia no carrinho (a validação que vale é a do PedidoService).
 builder.Services.AddScoped<ICupomService, CupomService>();
 
+// Estoque: extrato + ajuste manual (Scoped, usa o DbContext).
+builder.Services.AddScoped<IEstoqueService, EstoqueService>();
+
 // Busca de CEP via ViaCEP (grátis). HttpClient TIPADO: a DI cria o ViaCepService já com
 // um HttpClient configurado com a BaseAddress do ViaCEP. Trocar de provedor = trocar aqui.
 builder.Services.AddHttpClient<ICepService, ViaCepService>(c =>
