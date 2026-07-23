@@ -47,6 +47,12 @@
                no submit; o servidor valida o token no RegisterUser. Invisível pro usuário. *@
             <input type="hidden" name="Input.RecaptchaToken" id="recaptcha-token" value="@Input.RecaptchaToken" />
             <button type="submit" class="w-100 btn btn-lg btn-primary">Register</button>
+            @* Aviso EXIGIDO pelo Google para poder esconder o selo flutuante do reCAPTCHA. *@
+            <p style="font-size:.75rem; opacity:.7; margin-top:.5rem;">
+                Este site é protegido pelo reCAPTCHA e se aplicam a
+                <a href="https://policies.google.com/privacy" target="_blank">Política de Privacidade</a> e os
+                <a href="https://policies.google.com/terms" target="_blank">Termos de Serviço</a> do Google.
+            </p>
         </EditForm>
     </div>
     <div class="col-lg-4 col-lg-offset-2">
