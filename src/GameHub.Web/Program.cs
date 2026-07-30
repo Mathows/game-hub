@@ -136,9 +136,25 @@ builder.Services.AddScoped<IPedidoService, PedidoService>();
 builder.Services.AddTransient<CalculadoraAluguel>();
 builder.Services.AddScoped<IAluguelService, AluguelService>();
 
-// Nota fiscal (Fase 8): PROVIDER plugável — hoje o Simulado; amanhã o sandbox
-// (Focus NFe/PlugNotas) ou produção, trocando SÓ esta linha (padrão Gmail/Google).
-builder.Services.AddScoped<INotaFiscalProvider, NotaFiscalProviderSimulado>();
+// Nota fiscal (Fase 8): PROVIDER plugável com INTERRUPTOR no appsettings
+// ("NotaFiscal:Provider" = "Simulado" ou "PlugNotasSandbox"). O sandbox do PlugNotas é
+// público (token fixo da documentação, sem cadastro/custo) — mesma API do FinFix real.
+var providerNota = builder.Configuration["NotaFiscal:Provider"] ?? "Simulado";
+if (providerNota.Equals("PlugNotasSandbox", StringComparison.OrdinalIgnoreCase))
+{
+    builder.Services.AddHttpClient<INotaFiscalProvider, NotaFiscalProviderPlugNotas>(c =>
+    {
+        c.BaseAddress = new Uri(builder.Configuration["NotaFiscal:PlugNotas:Url"] ?? "https://api.sandbox.plugnotas.com.br/");
+        // Token PÚBLICO do sandbox (está na documentação do PlugNotas — não é segredo).
+        c.DefaultRequestHeaders.Add("x-api-key",
+            builder.Configuration["NotaFiscal:PlugNotas:Token"] ?? "2da392a6-79d2-4304-a8b7-959572c7e44d");
+        c.Timeout = TimeSpan.FromSeconds(20);
+    });
+}
+else
+{
+    builder.Services.AddScoped<INotaFiscalProvider, NotaFiscalProviderSimulado>();
+}
 // O emissor orquestra: número sequencial, status + histórico, transação.
 builder.Services.AddScoped<IEmissorNotaFiscal, EmissorNotaFiscal>();
 
