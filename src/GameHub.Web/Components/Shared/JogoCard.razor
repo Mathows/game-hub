@@ -16,7 +16,8 @@
         }
         @if (promocao is not null)
         {
-            <span class="pg-badge" style="right:auto;left:.5rem;background:#b32121;color:#fff;border-color:#b32121;">PROMOÇÃO</span>
+            @* Plataforma fica à esquerda; a promoção vai pro canto DIREITO (não se sobrepõem). *@
+            <span class="pg-badge" style="left:auto;right:.5rem;background:#b32121;color:#fff;border-color:#b32121;">PROMOÇÃO</span>
         }
     </a>
     <div class="pg-card-body">

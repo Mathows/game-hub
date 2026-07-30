@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using GameHub.Domain.Enums;
 using GameHub.Domain.Interfaces;
 using GameHub.Infrastructure.Data;
@@ -7,17 +8,22 @@ namespace GameHub.Infrastructure.Services;
 
 /// <summary>
 /// Confirma pagamentos (chamado pelo webhook). Scoped, pois usa o GameHubDbContext.
-/// Ao confirmar, dispara o e-mail de confirmação (IEmailService).
+/// Ao confirmar: dispara o e-mail de confirmação E emite a nota fiscal (Fase 8).
 /// </summary>
 public class PagamentoService : IPagamentoService
 {
     private readonly GameHubDbContext _context;
     private readonly IEmailService _email;
+    private readonly IEmissorNotaFiscal _emissorNota;
+    private readonly ILogger<PagamentoService> _log;
 
-    public PagamentoService(GameHubDbContext context, IEmailService email)
+    public PagamentoService(GameHubDbContext context, IEmailService email,
+        IEmissorNotaFiscal emissorNota, ILogger<PagamentoService> log)
     {
         _context = context;
         _email = email;
+        _emissorNota = emissorNota;
+        _log = log;
     }
 
     public async Task<bool> ConfirmarPagamentoAsync(int pedidoId)
@@ -41,6 +47,20 @@ public class PagamentoService : IPagamentoService
 
         // Pagamento confirmado → envia o e-mail de confirmação (só na 1ª vez).
         await EnviarConfirmacaoAsync(pedido);
+
+        // "Pagou → emite a nota" (evento de negócio, Fase 8). Falha fiscal NÃO desfaz o
+        // pagamento (o dinheiro entrou!): se der erro, loga e a nota pode ser reemitida.
+        try
+        {
+            var nota = await _emissorNota.EmitirParaPedidoAsync(pedido.Id);
+            _log.LogInformation("Nota fiscal do pedido #{Pedido}: {Status} (nº {Numero}).",
+                pedido.Id, nota.Status, nota.Numero);
+        }
+        catch (Exception ex)
+        {
+            _log.LogWarning(ex, "Falha ao emitir a nota do pedido #{Pedido} — reemitir depois.", pedido.Id);
+        }
+
         return true;
     }
 

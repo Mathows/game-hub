@@ -24,6 +24,8 @@ public class GameHubDbContext : DbContext
     public DbSet<MovimentacaoEstoque> MovimentacoesEstoque => Set<MovimentacaoEstoque>();
     public DbSet<MotivoMovimentacao> MotivosMovimentacao => Set<MotivoMovimentacao>();
     public DbSet<PropostaVenda> PropostasVenda => Set<PropostaVenda>();
+    public DbSet<NotaFiscal> NotasFiscais => Set<NotaFiscal>();
+    public DbSet<HistoricoStatusNota> HistoricosStatusNota => Set<HistoricoStatusNota>();
     public DbSet<Plataforma> Plataformas => Set<Plataforma>();
     public DbSet<Genero> Generos => Set<Genero>();
     public DbSet<Cliente> Clientes => Set<Cliente>();
@@ -95,6 +97,26 @@ public class GameHubDbContext : DbContext
         modelBuilder.Entity<MotivoMovimentacao>(mm =>
         {
             mm.Property(x => x.Descricao).HasMaxLength(100).IsRequired();
+        });
+
+        // ---- Nota fiscal: 1:1 com o Pedido, GARANTIDO PELO SCHEMA (índice único) ----
+        modelBuilder.Entity<NotaFiscal>(nf =>
+        {
+            nf.HasIndex(x => x.PedidoId).IsUnique().HasDatabaseName("UX_NotaFiscal_Pedido");
+            nf.HasIndex(x => new { x.Serie, x.Numero }).IsUnique().HasDatabaseName("UX_NotaFiscal_Serie_Numero");
+            nf.Property(x => x.ChaveAcesso).HasMaxLength(44);
+            nf.Property(x => x.Protocolo).HasMaxLength(40);
+            nf.Property(x => x.MotivoRejeicao).HasMaxLength(300);
+            nf.Property(x => x.ValorTotal).HasPrecision(10, 2);
+            nf.HasOne(x => x.Pedido).WithMany().HasForeignKey(x => x.PedidoId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        // Histórico de status da nota: filho do agregado (some junto com a nota — que nunca é apagada).
+        modelBuilder.Entity<HistoricoStatusNota>(h =>
+        {
+            h.Property(x => x.Observacao).HasMaxLength(300);
+            h.HasOne(x => x.NotaFiscal).WithMany(n => n.Historico)
+             .HasForeignKey(x => x.NotaFiscalId).OnDelete(DeleteBehavior.Cascade);
         });
 
         // ---- Proposta de venda (cliente → loja): workflow de aprovação ----
