@@ -23,6 +23,7 @@ public class GameHubDbContext : DbContext
     public DbSet<Cupom> Cupons => Set<Cupom>();
     public DbSet<MovimentacaoEstoque> MovimentacoesEstoque => Set<MovimentacaoEstoque>();
     public DbSet<MotivoMovimentacao> MotivosMovimentacao => Set<MotivoMovimentacao>();
+    public DbSet<PropostaVenda> PropostasVenda => Set<PropostaVenda>();
     public DbSet<Plataforma> Plataformas => Set<Plataforma>();
     public DbSet<Genero> Generos => Set<Genero>();
     public DbSet<Cliente> Clientes => Set<Cliente>();
@@ -94,6 +95,18 @@ public class GameHubDbContext : DbContext
         modelBuilder.Entity<MotivoMovimentacao>(mm =>
         {
             mm.Property(x => x.Descricao).HasMaxLength(100).IsRequired();
+        });
+
+        // ---- Proposta de venda (cliente → loja): workflow de aprovação ----
+        modelBuilder.Entity<PropostaVenda>(pv =>
+        {
+            pv.Property(x => x.ValorPedido).HasPrecision(10, 2);
+            pv.Property(x => x.ValorAprovado).HasPrecision(10, 2);
+            pv.Property(x => x.ObservacaoCliente).HasMaxLength(300);
+            pv.Property(x => x.RespostaAdmin).HasMaxLength(300);
+            pv.HasOne(x => x.Cliente).WithMany().HasForeignKey(x => x.ClienteId).OnDelete(DeleteBehavior.Restrict);
+            pv.HasOne(x => x.Jogo).WithMany().HasForeignKey(x => x.JogoId).OnDelete(DeleteBehavior.Restrict);
+            pv.HasIndex(x => x.Status).HasDatabaseName("IX_PropostaVenda_Status");   // fila do admin
         });
 
         // ---- Cupom de desconto ----
