@@ -84,6 +84,9 @@ builder.Services.AddScoped<IJogoRepository, JogoRepository>();
 // Agenda de endereços do cliente (Scoped, usa o DbContext).
 builder.Services.AddScoped<IEnderecoService, EnderecoService>();
 
+// Dados fiscais do cliente (CPF/CNPJ validado no servidor — Fase 8).
+builder.Services.AddScoped<IClienteService, ClienteService>();
+
 // Cupom de desconto: prévia no carrinho (a validação que vale é a do PedidoService).
 builder.Services.AddScoped<ICupomService, CupomService>();
 

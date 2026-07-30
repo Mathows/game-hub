@@ -1,0 +1,112 @@
+@page "/minha-conta/dados"
+@rendermode InteractiveServer
+@attribute [Microsoft.AspNetCore.Authorization.Authorize]
+@using System.Security.Claims
+@using GameHub.Domain.Enums
+@using GameHub.Domain.Services
+@inject IClienteService ClienteService
+
+<PageTitle>Dados Fiscais — GameHub</PageTitle>
+
+<div class="pg-section-head">
+    <h1>Meus <span class="gold">Dados Fiscais</span></h1>
+</div>
+
+@if (mensagem is not null)
+{
+    <div class="pg-toast">@mensagem</div>
+}
+
+<div style="max-width:520px;">
+    <p class="pg-muted">
+        O CPF/CNPJ identifica você como <strong>destinatário na nota fiscal</strong> —
+        sem ele, a emissão é rejeitada (como em qualquer loja de verdade).
+    </p>
+
+    <label>Tipo de pessoa</label>
+    <select class="pg-input" @bind="tipoPessoa">
+        <option value="@TipoPessoa.Fisica">Pessoa física (CPF)</option>
+        <option value="@TipoPessoa.Juridica">Pessoa jurídica (CNPJ)</option>
+    </select>
+
+    <label>@(tipoPessoa == TipoPessoa.Fisica ? "CPF" : "CNPJ")</label>
+    <input class="pg-input" @bind="cpfCnpj"
+           placeholder="@(tipoPessoa == TipoPessoa.Fisica ? "000.000.000-00" : "00.000.000/0000-00")" />
+
+    <label>Telefone (opcional)</label>
+    <input class="pg-input" @bind="telefone" placeholder="(12) 99999-9999" />
+
+    <button class="pg-btn pg-btn-gold" style="margin-top:1rem;" @onclick="Salvar" disabled="@ocupado">
+        Salvar dados
+    </button>
+
+    @if (!string.IsNullOrEmpty(cpfCnpjAtual))
+    {
+        <p class="pg-muted" style="margin-top:1rem;">
+            Cadastrado: <strong>@ValidadorCpfCnpj.Formatar(cpfCnpjAtual)</strong>
+            — agora dá pra <a href="meus-pedidos">reemitir notas rejeitadas</a>.
+        </p>
+    }
+</div>
+
+@code {
+    [CascadingParameter] private Task<AuthenticationState>? AuthState { get; set; }
+
+    private string? userId;
+    private string? nome;
+    private TipoPessoa tipoPessoa = TipoPessoa.Fisica;
+    private string cpfCnpj = "";
+    private string telefone = "";
+    private string? cpfCnpjAtual;
+    private string? mensagem;
+    private bool ocupado;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var user = AuthState is null ? null : (await AuthState).User;
+        userId = user?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        nome = user?.Identity?.Name;
+        if (string.IsNullOrEmpty(userId)) return;
+
+        var cliente = await ClienteService.ObterAsync(userId);
+        if (cliente is not null)
+        {
+            tipoPessoa = cliente.TipoPessoa;
+            cpfCnpjAtual = cliente.CpfCnpj;
+            cpfCnpj = ValidadorCpfCnpj.Formatar(cliente.CpfCnpj);
+            telefone = cliente.Telefone ?? "";
+        }
+    }
+
+    private async Task Salvar()
+    {
+        mensagem = null;
+        if (string.IsNullOrEmpty(userId)) return;
+
+        // Cortesia de UX: valida na tela antes (a validação QUE VALE é a do servidor).
+        var digitos = ValidadorCpfCnpj.SoDigitos(cpfCnpj);
+        var valido = tipoPessoa == TipoPessoa.Fisica
+            ? ValidadorCpfCnpj.ValidarCpf(digitos)
+            : ValidadorCpfCnpj.ValidarCnpj(digitos);
+        if (!valido)
+        {
+            mensagem = tipoPessoa == TipoPessoa.Fisica
+                ? "⚠️ CPF inválido — os dígitos verificadores não batem."
+                : "⚠️ CNPJ inválido — os dígitos verificadores não batem.";
+            return;
+        }
+
+        ocupado = true;
+        try
+        {
+            await ClienteService.SalvarDadosFiscaisAsync(userId, nome ?? "Cliente", tipoPessoa, digitos, telefone);
+            cpfCnpjAtual = digitos;
+            mensagem = "✅ Dados fiscais salvos.";
+        }
+        catch (Exception ex)
+        {
+            mensagem = "⚠️ " + ex.Message;
+        }
+        finally { ocupado = false; }
+    }
+}
