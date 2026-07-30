@@ -133,8 +133,11 @@ builder.Services.AddScoped<IPedidoService, PedidoService>();
 builder.Services.AddTransient<CalculadoraAluguel>();
 builder.Services.AddScoped<IAluguelService, AluguelService>();
 
-// Nota fiscal simulada: só faz formatação (sem estado) → Transient, como a calculadora.
-builder.Services.AddTransient<NotaFiscalService>();
+// Nota fiscal (Fase 8): PROVIDER plugável — hoje o Simulado; amanhã o sandbox
+// (Focus NFe/PlugNotas) ou produção, trocando SÓ esta linha (padrão Gmail/Google).
+builder.Services.AddScoped<INotaFiscalProvider, NotaFiscalProviderSimulado>();
+// O emissor orquestra: número sequencial, status + histórico, transação.
+builder.Services.AddScoped<IEmissorNotaFiscal, EmissorNotaFiscal>();
 
 // Trocas (Fase 5): INTERRUPTOR de ORM. "Trocas:Orm" no appsettings escolhe a implementação.
 // As telas usam SEMPRE a mesma interface ITrocaService — só a "cozinha" de dados muda.

@@ -1,9 +1,8 @@
 @page "/nota/{PedidoId:int}"
+@rendermode InteractiveServer
 @using System.Security.Claims
 @using GameHub.Domain.Enums
-@using GameHub.Domain.Services
-@inject IPedidoService PedidoService
-@inject NotaFiscalService NotaService
+@inject IEmissorNotaFiscal Emissor
 
 <PageTitle>Nota Fiscal — Pedido #@PedidoId</PageTitle>
 
@@ -19,44 +18,103 @@ else
 {
     <a class="pg-muted" href="meus-pedidos">← Voltar aos pedidos</a>
 
+    @if (mensagem is not null)
+    {
+        <div class="pg-toast">@mensagem</div>
+    }
+
     <div class="pg-nota">
         <div class="pg-nota-head">
             <div>
-                <div class="pg-nota-titulo">NOTA FISCAL <span class="gold">(SIMULAÇÃO)</span></div>
+                <div class="pg-nota-titulo">
+                    NOTA FISCAL Nº @nota.Numero.ToString("D9") <span class="pg-muted">série @nota.Serie.ToString("D3")</span>
+                    <span class="gold">(SIMULAÇÃO)</span>
+                </div>
                 <div class="pg-muted">GameHub — documento sem validade fiscal</div>
             </div>
-            <button class="pg-btn pg-btn-outline" onclick="window.print()">Imprimir</button>
+            <div style="display:flex; gap:.5rem; align-items:center;">
+                @* Status da nota (o ciclo de vida real da NF-e). *@
+                @switch (nota.Status)
+                {
+                    case StatusNotaFiscal.Autorizada:
+                        <span class="pg-badge" style="position:static;background:#1d4620;color:#7CFC90;border-color:#2e6b31;">Autorizada</span>
+                        break;
+                    case StatusNotaFiscal.Rejeitada:
+                        <span class="pg-badge" style="position:static;background:#4a1d1d;color:#ff8a8a;border-color:#6b2e2e;">Rejeitada</span>
+                        break;
+                    case StatusNotaFiscal.Cancelada:
+                        <span class="pg-badge" style="position:static;">Cancelada</span>
+                        break;
+                    default:
+                        <span class="pg-badge" style="position:static;">Pendente</span>
+                        break;
+                }
+                @if (nota.Status == StatusNotaFiscal.Autorizada)
+                {
+                    <button class="pg-btn pg-btn-outline" onclick="window.print()">Imprimir</button>
+                }
+            </div>
         </div>
+
+        @if (nota.Status == StatusNotaFiscal.Rejeitada)
+        {
+            <div class="pg-empty" style="border-color:#6b2e2e;color:#ff8a8a;margin:1rem 0;">
+                ⚠️ @nota.MotivoRejeicao
+                <div style="margin-top:.75rem;">
+                    <button class="pg-btn pg-btn-gold" @onclick="Reemitir" disabled="@ocupado">Emitir novamente</button>
+                </div>
+            </div>
+        }
 
         <div class="pg-nota-grid">
-            <div><span class="pg-muted">Número:</span> @nota.Numero</div>
-            <div><span class="pg-muted">Série:</span> @nota.Serie</div>
             <div><span class="pg-muted">Emissão:</span> @nota.DataEmissao.ToString("dd/MM/yyyy HH:mm")</div>
-            <div><span class="pg-muted">Cliente:</span> @nota.NomeCliente</div>
+            <div><span class="pg-muted">Autorização:</span> @(nota.DataAutorizacao?.ToString("dd/MM/yyyy HH:mm") ?? "—")</div>
+            <div><span class="pg-muted">Protocolo:</span> @(nota.Protocolo ?? "—")</div>
+            <div><span class="pg-muted">Cliente:</span> @nota.Pedido?.Cliente?.Nome</div>
         </div>
 
-        <div class="pg-nota-chave">
-            <span class="pg-muted">Chave de acesso:</span> <code>@ChaveFormatada</code>
-        </div>
+        @if (!string.IsNullOrEmpty(nota.ChaveAcesso))
+        {
+            <div class="pg-nota-chave">
+                <span class="pg-muted">Chave de acesso:</span> <code>@ChaveFormatada</code>
+            </div>
+        }
 
         <table class="pg-table" style="margin-top:1rem;">
             <thead>
                 <tr><th>Descrição</th><th>Qtd</th><th>Valor unit.</th><th>Total</th></tr>
             </thead>
             <tbody>
-                @foreach (var item in nota.Itens)
+                @foreach (var item in nota.Pedido!.Itens)
                 {
                     <tr>
-                        <td>@item.Descricao</td>
+                        <td>@(item.Jogo?.Titulo ?? $"Jogo {item.JogoId}")</td>
                         <td>@item.Quantidade</td>
-                        <td>R$ @item.ValorUnitario.ToString("N2")</td>
-                        <td>R$ @item.ValorTotal.ToString("N2")</td>
+                        <td>R$ @item.PrecoUnitario.ToString("N2")</td>
+                        <td>R$ @((item.PrecoUnitario * item.Quantidade).ToString("N2"))</td>
                     </tr>
                 }
             </tbody>
         </table>
 
         <div class="pg-nota-total">TOTAL: <span class="gold">R$ @nota.ValorTotal.ToString("N2")</span></div>
+
+        @* Histórico de status: a auditoria de fluxo (quem/quando/por quê) — padrão FinFix. *@
+        <h3 class="gold" style="margin-top:2rem;">Histórico da nota</h3>
+        <table class="pg-table">
+            <thead><tr><th>Quando</th><th>De</th><th>Para</th><th>Observação</th></tr></thead>
+            <tbody>
+                @foreach (var h in nota.Historico.OrderByDescending(x => x.Id))
+                {
+                    <tr>
+                        <td>@h.CriadoEm.ToString("dd/MM HH:mm:ss")</td>
+                        <td class="pg-muted">@(h.StatusAnterior?.ToString() ?? "—")</td>
+                        <td>@h.StatusNovo</td>
+                        <td class="pg-muted">@h.Observacao</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
     </div>
 }
 
@@ -64,18 +122,22 @@ else
     [Parameter] public int PedidoId { get; set; }
     [CascadingParameter] private Task<AuthenticationState>? AuthState { get; set; }
 
-    private NotaFiscalSimulada? nota;
+    private GameHub.Domain.Entities.NotaFiscal? nota;
+    private string? userId;
     private string? erro;
+    private string? mensagem;
     private bool carregando = true;
+    private bool ocupado;
 
     private string ChaveFormatada =>
-        nota is null ? "" : string.Join(" ", Enumerable.Range(0, nota.ChaveAcesso.Length / 4)
+        string.IsNullOrEmpty(nota?.ChaveAcesso) ? "" :
+        string.Join(" ", Enumerable.Range(0, nota.ChaveAcesso.Length / 4)
             .Select(i => nota.ChaveAcesso.Substring(i * 4, 4)));
 
     protected override async Task OnInitializedAsync()
     {
         var user = AuthState is null ? null : (await AuthState).User;
-        var userId = user?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        userId = user?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         if (string.IsNullOrEmpty(userId))
         {
             erro = "Entre na sua conta para ver a nota.";
@@ -83,20 +145,28 @@ else
             return;
         }
 
-        var pedido = await PedidoService.ObterPorIdAsync(PedidoId, userId);
-        if (pedido is null)
-        {
-            erro = "Pedido não encontrado.";
-        }
-        else if (pedido.Status != StatusPedido.Pago)
-        {
-            // Regra de negócio: só emite nota depois do pagamento confirmado.
-            erro = "A nota fiscal só é emitida após o pagamento ser confirmado.";
-        }
-        else
-        {
-            nota = NotaService.GerarParaPedido(pedido);
-        }
+        nota = await Emissor.ObterPorPedidoAsync(PedidoId, userId);
+        if (nota is null)
+            erro = "Nota não encontrada — ela é emitida quando o pagamento é confirmado.";
         carregando = false;
+    }
+
+    private async Task Reemitir()
+    {
+        mensagem = null;
+        ocupado = true;
+        try
+        {
+            await Emissor.ReemitirAsync(PedidoId, userId!);
+            nota = await Emissor.ObterPorPedidoAsync(PedidoId, userId!);   // recarrega com o histórico novo
+            mensagem = nota?.Status == StatusNotaFiscal.Autorizada
+                ? "✅ Nota autorizada!"
+                : "A emissão foi tentada novamente — veja o status.";
+        }
+        catch (Exception ex)
+        {
+            mensagem = "⚠️ " + ex.Message;
+        }
+        finally { ocupado = false; }
     }
 }
