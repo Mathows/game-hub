@@ -93,6 +93,9 @@ builder.Services.AddScoped<IEstoqueService, EstoqueService>();
 // Vender pra loja: workflow de aprovação (Scoped, usa o DbContext).
 builder.Services.AddScoped<IPropostaVendaService, PropostaVendaService>();
 
+// Dashboard do admin: consultas agregadas (Scoped, usa o DbContext).
+builder.Services.AddScoped<IDashboardService, DashboardService>();
+
 // Busca de CEP via ViaCEP (grátis). HttpClient TIPADO: a DI cria o ViaCepService já com
 // um HttpClient configurado com a BaseAddress do ViaCEP. Trocar de provedor = trocar aqui.
 builder.Services.AddHttpClient<ICepService, ViaCepService>(c =>

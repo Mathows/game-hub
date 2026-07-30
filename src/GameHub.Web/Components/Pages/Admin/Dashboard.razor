@@ -1,0 +1,118 @@
+@page "/admin/dashboard"
+@rendermode InteractiveServer
+@inject IDashboardService DashboardService
+
+<PageTitle>Dashboard — Admin GameHub</PageTitle>
+
+<div class="pg-section-head">
+    <h1><span class="gold">Dashboard</span> da Loja</h1>
+    <a class="pg-btn pg-btn-outline" href="admin/jogos">← Jogos</a>
+</div>
+
+@if (resumo is null)
+{
+    <p class="pg-muted">Calculando os números...</p>
+}
+else
+{
+    @* ---- Cards de KPI ---- *@
+    <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(210px, 1fr)); gap:1rem;">
+        <div class="pg-card" style="padding:1.25rem;">
+            <div class="pg-muted">Faturamento (pedidos pagos)</div>
+            <div class="gold" style="font-size:1.8rem; font-weight:700;">R$ @resumo.FaturamentoTotal.ToString("N2")</div>
+            <div class="pg-muted" style="font-size:.8rem;">descontos concedidos: −R$ @resumo.DescontosConcedidos.ToString("N2")</div>
+        </div>
+        <div class="pg-card" style="padding:1.25rem;">
+            <div class="pg-muted">Ticket médio</div>
+            <div class="gold" style="font-size:1.8rem; font-weight:700;">R$ @resumo.TicketMedio.ToString("N2")</div>
+            <div class="pg-muted" style="font-size:.8rem;">@resumo.PedidosPagos pedido(s) pago(s)</div>
+        </div>
+        <div class="pg-card" style="padding:1.25rem;">
+            <div class="pg-muted">Pedidos aguardando pagamento</div>
+            <div style="font-size:1.8rem; font-weight:700;">@resumo.PedidosPendentes</div>
+        </div>
+        <div class="pg-card" style="padding:1.25rem;">
+            <div class="pg-muted">Aluguéis ativos</div>
+            <div style="font-size:1.8rem; font-weight:700;">@resumo.AlugueisAtivos</div>
+        </div>
+        <div class="pg-card" style="padding:1.25rem;">
+            <div class="pg-muted">Trocas abertas</div>
+            <div style="font-size:1.8rem; font-weight:700;">@resumo.TrocasAbertas</div>
+        </div>
+        <div class="pg-card" style="padding:1.25rem;">
+            <div class="pg-muted">Propostas de venda na fila</div>
+            <div style="font-size:1.8rem; font-weight:700;">@resumo.PropostasPendentes</div>
+            @if (resumo.PropostasPendentes > 0)
+            {
+                <a href="admin/propostas" class="gold" style="font-size:.8rem;">avaliar agora →</a>
+            }
+        </div>
+    </div>
+
+    <div style="display:flex; gap:2rem; flex-wrap:wrap; align-items:flex-start; margin-top:2rem;">
+
+        @* ---- Top jogos vendidos ---- *@
+        <div style="flex:1 1 380px;">
+            <h2 class="gold">🏆 Mais vendidos</h2>
+            @if (resumo.TopJogos.Count == 0)
+            {
+                <div class="pg-empty">Nenhuma venda paga ainda.</div>
+            }
+            else
+            {
+                <table class="pg-table">
+                    <thead><tr><th>#</th><th>Jogo</th><th>Unidades</th><th>Receita</th></tr></thead>
+                    <tbody>
+                        @{ var pos = 1; }
+                        @foreach (var t in resumo.TopJogos)
+                        {
+                            <tr>
+                                <td>@(pos++)º</td>
+                                <td>@t.Titulo</td>
+                                <td>@t.Unidades</td>
+                                <td>R$ @t.Receita.ToString("N2")</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+        </div>
+
+        @* ---- Estoque baixo (candidatos a reposição) ---- *@
+        <div style="flex:1 1 320px;">
+            <h2 class="gold">⚠️ Estoque baixo (≤ 3)</h2>
+            @if (resumo.EstoqueBaixo.Count == 0)
+            {
+                <div class="pg-empty">Nenhum jogo com estoque crítico. 👌</div>
+            }
+            else
+            {
+                <table class="pg-table">
+                    <thead><tr><th>Jogo</th><th>Restam</th><th></th></tr></thead>
+                    <tbody>
+                        @foreach (var e in resumo.EstoqueBaixo)
+                        {
+                            <tr>
+                                <td>@e.Titulo</td>
+                                <td style="color:#ff8a8a; font-weight:700;">@e.Quantidade</td>
+                                <td><a class="gold" href="admin/estoque" style="font-size:.8rem;">repor →</a></td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+        </div>
+    </div>
+
+    <p class="pg-muted" style="margin-top:1.5rem; font-size:.8rem;">
+        Números calculados <strong>no banco</strong> (SUM/COUNT/GROUP BY via LINQ) — o servidor
+        recebe só o resultado, não as linhas.
+    </p>
+}
+
+@code {
+    private DashboardResumo? resumo;
+
+    protected override async Task OnInitializedAsync() =>
+        resumo = await DashboardService.ObterResumoAsync();
+}
