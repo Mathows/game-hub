@@ -155,11 +155,11 @@
 
     public static string RotuloStatus(StatusPropostaVenda s) => s switch
     {
-        StatusPropostaVenda.Proposta => "⏳ Aguardando a loja",
-        StatusPropostaVenda.EmAvaliacao => "🔎 Em avaliação",
-        StatusPropostaVenda.Aprovada => "✅ Aprovada",
-        StatusPropostaVenda.Recusada => "❌ Recusada",
-        StatusPropostaVenda.Cancelada => "🚫 Cancelada",
+        StatusPropostaVenda.Proposta => "Aguardando a loja",
+        StatusPropostaVenda.EmAvaliacao => "Em avaliação",
+        StatusPropostaVenda.Aprovada => "Aprovada",
+        StatusPropostaVenda.Recusada => "Recusada",
+        StatusPropostaVenda.Cancelada => "Cancelada",
         _ => s.ToString()
     };
 

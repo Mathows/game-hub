@@ -115,7 +115,7 @@
 
             @* ---- Cadastrar motivo novo (a razão de ser da tabela de lookup!) ---- *@
             <details style="margin-top:1.5rem;">
-                <summary class="pg-muted" style="cursor:pointer;">➕ Cadastrar novo motivo de @(operacao == OperacaoEstoque.Entrada ? "entrada" : "saída")</summary>
+                <summary class="pg-muted" style="cursor:pointer;">+ Cadastrar novo motivo de @(operacao == OperacaoEstoque.Entrada ? "entrada" : "saída")</summary>
                 <div style="display:flex; gap:.5rem; margin-top:.5rem;">
                     <input class="pg-input" @bind="novoMotivo" placeholder="Ex.: Brinde de campanha" />
                     <button class="pg-btn pg-btn-outline" @onclick="CadastrarMotivo" disabled="@ocupado">Salvar</button>
@@ -224,11 +224,11 @@
 
     private static string RotuloTipo(TipoMovimentacaoEstoque t) => t switch
     {
-        TipoMovimentacaoEstoque.Entrada => "📥 Entrada",
-        TipoMovimentacaoEstoque.Venda => "🛒 Venda",
-        TipoMovimentacaoEstoque.Aluguel => "🎮 Aluguel",
-        TipoMovimentacaoEstoque.DevolucaoAluguel => "↩️ Devolução",
-        TipoMovimentacaoEstoque.Ajuste => "🔧 Ajuste",
+        TipoMovimentacaoEstoque.Entrada => "Entrada",
+        TipoMovimentacaoEstoque.Venda => "Venda",
+        TipoMovimentacaoEstoque.Aluguel => "Aluguel",
+        TipoMovimentacaoEstoque.DevolucaoAluguel => "Devolução",
+        TipoMovimentacaoEstoque.Ajuste => "Ajuste",
         _ => t.ToString()
     };
 }

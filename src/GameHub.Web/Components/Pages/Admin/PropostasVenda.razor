@@ -47,7 +47,7 @@ else
                         @if (p.Status == StatusPropostaVenda.Proposta)
                         {
                             <button class="pg-btn pg-btn-outline" @onclick="() => IniciarAvaliacao(p.Id)" disabled="@ocupado">
-                                🔎 Avaliar
+                                Avaliar
                             </button>
                         }
                         else if (p.Status == StatusPropostaVenda.EmAvaliacao)
@@ -76,8 +76,8 @@ else
                                     <label>Comentário / motivo</label>
                                     <input class="pg-input" @bind="resposta" placeholder="Obrigatório na recusa" />
                                 </div>
-                                <button class="pg-btn pg-btn-gold" @onclick="() => Aprovar(p)" disabled="@ocupado">✅ Aprovar</button>
-                                <button class="pg-btn pg-btn-ghost" @onclick="() => Recusar(p)" disabled="@ocupado">❌ Recusar</button>
+                                <button class="pg-btn pg-btn-gold" @onclick="() => Aprovar(p)" disabled="@ocupado">Aprovar</button>
+                                <button class="pg-btn pg-btn-ghost" @onclick="() => Recusar(p)" disabled="@ocupado">Recusar</button>
                                 <button class="pg-btn pg-btn-ghost" @onclick="() => respondendoId = null">fechar</button>
                             </div>
                             <p class="pg-muted" style="margin:.5rem 0 0;">

@@ -2,24 +2,31 @@
 
 <div class="pg-app">
 
+    @* MENU HAMBÚRGUER 100% CSS (truque do checkbox): o input invisível guarda o estado
+       aberto/fechado; os <label for> fazem o papel de botão. Sem JavaScript, funciona
+       em SSR — e ao navegar (enhanced nav) o DOM novo volta desmarcado = drawer fecha. *@
+    <input type="checkbox" id="pg-menu-toggle" class="pg-menu-toggle" />
+
     <header class="pg-header">
         <div class="pg-header-inner">
+            <label for="pg-menu-toggle" class="pg-menu-btn" aria-label="Abrir menu" title="Menu">
+                <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true">
+                    <line x1="4" y1="6" x2="20" y2="6" /><line x1="4" y1="12" x2="20" y2="12" /><line x1="4" y1="18" x2="20" y2="18" />
+                </svg>
+            </label>
+
             <a class="pg-logo" href="/">
-                <span class="pg-logo-icon">🎮</span>
+                <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor" aria-hidden="true"><path d="M7.9 5h8.2c2.6 0 4.8 1.9 5.1 4.5l.8 5.8a3.1 3.1 0 0 1-5.4 2.4l-1.8-2a2 2 0 0 0-1.5-.7h-2.6a2 2 0 0 0-1.5.7l-1.8 2a3.1 3.1 0 0 1-5.4-2.4l.8-5.8A5.2 5.2 0 0 1 7.9 5Zm.1 3a1 1 0 0 0-1 1v.8h-.8a1 1 0 1 0 0 2H7v.7a1 1 0 1 0 2 0v-.7h.8a1 1 0 1 0 0-2H9V9a1 1 0 0 0-1-1Zm7.3.3a1.1 1.1 0 1 0 0 2.2 1.1 1.1 0 0 0 0-2.2Zm2.5 2.5a1.1 1.1 0 1 0 0 2.2 1.1 1.1 0 0 0 0-2.2Z"/></svg>
                 <span>GAME<span class="gold">HUB</span></span>
             </a>
 
-            <nav class="pg-nav">
-                <NavLink class="pg-nav-link" href="" Match="NavLinkMatch.All">Home</NavLink>
-                <NavLink class="pg-nav-link" href="catalogo">Comprar</NavLink>
-                <NavLink class="pg-nav-link" href="catalogo">Alugar</NavLink>
-                <NavLink class="pg-nav-link" href="trocas">Trocar</NavLink>
-                <NavLink class="pg-nav-link" href="vender">Vender</NavLink>
-                @* O link Admin só aparece para quem tem o papel "Admin". *@
-                <AuthorizeView Roles="Admin">
-                    <NavLink class="pg-nav-link" href="admin/jogos">Admin</NavLink>
-                </AuthorizeView>
-            </nav>
+            @* Busca central (estilo Nuuvem): GET pro catálogo, que já lê ?busca= da URL. *@
+            <form action="catalogo" method="get" class="pg-header-search" role="search">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+                    <circle cx="11" cy="11" r="7" /><line x1="16.5" y1="16.5" x2="21" y2="21" />
+                </svg>
+                <input name="busca" placeholder="Buscar jogos..." autocomplete="off" />
+            </form>
 
             <div class="pg-header-actions">
                 @* Ilha interativa: o selo roda no circuito e lê o mesmo carrinho Scoped. *@
@@ -27,12 +34,9 @@
                 <AuthorizeView>
                     <Authorized>
                         <NotificacaoListener @rendermode="InteractiveServer" />
-                        <a class="pg-nav-link" href="meus-pedidos">Meus Pedidos</a>
-                        <a class="pg-nav-link" href="minha-conta/enderecos">Endereços</a>
                         @* Mostra o NOME da pessoa (claim "nome"); se não tiver, cai no e-mail. *@
                         <a class="pg-nav-link" href="Account/Manage">@(context.User.FindFirst("nome")?.Value ?? context.User.Identity?.Name)</a>
-                        @* Sair: logout é um POST (com antiforgery) pra Account/Logout — nunca um link GET,
-                           senão qualquer site conseguiria te deslogar. ReturnUrl vazio volta pra home. *@
+                        @* Sair: logout é um POST (com antiforgery) — nunca link GET (CSRF). *@
                         <form action="Account/Logout" method="post" class="pg-logout-form">
                             <AntiforgeryToken />
                             <input type="hidden" name="ReturnUrl" value="" />
@@ -47,6 +51,44 @@
             </div>
         </div>
     </header>
+
+    @* Clique fora fecha (o overlay é um label do mesmo checkbox). *@
+    <label for="pg-menu-toggle" class="pg-menu-overlay" aria-hidden="true"></label>
+
+    @* O DRAWER: todo o menu vive aqui dentro. *@
+    <aside class="pg-drawer">
+        <div class="pg-drawer-head">
+            <span>Menu</span>
+            <label for="pg-menu-toggle" class="pg-drawer-close" aria-label="Fechar menu">✕</label>
+        </div>
+
+        <div class="pg-drawer-section">Loja</div>
+        <NavLink class="pg-drawer-link" href="" Match="NavLinkMatch.All">Home</NavLink>
+        <NavLink class="pg-drawer-link" href="catalogo">Comprar</NavLink>
+        <NavLink class="pg-drawer-link" href="catalogo">Alugar</NavLink>
+        <NavLink class="pg-drawer-link" href="trocas">Trocar</NavLink>
+        <NavLink class="pg-drawer-link" href="vender">Vender</NavLink>
+
+        <AuthorizeView>
+            <Authorized>
+                <div class="pg-drawer-section">Minha conta</div>
+                <NavLink class="pg-drawer-link" href="meus-pedidos">Meus pedidos</NavLink>
+                <NavLink class="pg-drawer-link" href="minha-conta/enderecos">Endereços</NavLink>
+                <NavLink class="pg-drawer-link" href="Account/Manage">Configurações da conta</NavLink>
+            </Authorized>
+        </AuthorizeView>
+
+        @* Seção do ADMIN: só quem tem o papel vê (role = claim, Fase 6). *@
+        <AuthorizeView Roles="Admin">
+            <div class="pg-drawer-section">Administração</div>
+            <NavLink class="pg-drawer-link" href="admin/dashboard">Dashboard</NavLink>
+            <NavLink class="pg-drawer-link" href="admin/jogos">Jogos</NavLink>
+            <NavLink class="pg-drawer-link" href="admin/promocoes">Promoções</NavLink>
+            <NavLink class="pg-drawer-link" href="admin/cupons">Cupons</NavLink>
+            <NavLink class="pg-drawer-link" href="admin/estoque">Estoque</NavLink>
+            <NavLink class="pg-drawer-link" href="admin/propostas">Propostas de venda</NavLink>
+        </AuthorizeView>
+    </aside>
 
     <main class="pg-main">
         @Body
