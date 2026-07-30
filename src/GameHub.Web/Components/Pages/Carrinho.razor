@@ -6,6 +6,7 @@
 @inject IPedidoService PedidoService
 @inject IAluguelService AluguelService
 @inject IEnderecoService EnderecoService
+@inject ICupomService CupomService
 
 <PageTitle>Carrinho — GameHub</PageTitle>
 
@@ -88,10 +89,38 @@ else
         </div>
     }
 
+    @* ---- Cupom de desconto (vale para os itens de COMPRA) ---- *@
+    @if (Cart.Itens.Any(i => i.Tipo == TipoAquisicao.Compra))
+    {
+        <div style="margin:1rem 0;">
+            <h3 class="gold">Cupom de desconto</h3>
+            <div style="display:flex; gap:.5rem; max-width:420px;">
+                <input class="pg-input" @bind="cupomCodigo" placeholder="Ex.: NATAL10"
+                       style="text-transform:uppercase;" disabled="@(descontoCupom > 0)" />
+                @if (descontoCupom > 0)
+                {
+                    <button class="pg-btn pg-btn-ghost" @onclick="RemoverCupom">Remover</button>
+                }
+                else
+                {
+                    <button class="pg-btn pg-btn-outline" @onclick="AplicarCupom" disabled="@processando">Aplicar</button>
+                }
+            </div>
+            @if (cupomMensagem is not null)
+            {
+                <p class="@(descontoCupom > 0 ? "gold" : "pg-muted")" style="margin-top:.4rem;">@cupomMensagem</p>
+            }
+        </div>
+    }
+
     <div class="pg-cart-footer">
         <button class="pg-btn pg-btn-ghost" @onclick="Cart.Limpar" disabled="@processando">Esvaziar carrinho</button>
         <div class="pg-cart-total">
-            Total: <span class="gold">R$ @Cart.ValorTotal.ToString("N2")</span>
+            @if (descontoCupom > 0)
+            {
+                <span class="pg-muted" style="font-size:.85em;">Subtotal: R$ @Cart.ValorTotal.ToString("N2") • Desconto: −R$ @descontoCupom.ToString("N2")</span><br />
+            }
+            Total: <span class="gold">R$ @((Cart.ValorTotal - descontoCupom).ToString("N2"))</span>
         </div>
         <button class="pg-btn pg-btn-gold" @onclick="Finalizar" disabled="@(processando || Cart.Itens.Count == 0)">
             @(processando ? "Processando..." : "Finalizar")
@@ -110,6 +139,30 @@ else
     // Agenda do cliente (para escolher o endereço de entrega) + o id escolhido.
     private List<Endereco>? enderecos;
     private int enderecoSelecionadoId;
+
+    // Cupom: código digitado + resultado da PRÉVIA (a validação que vale é a do servidor).
+    private string cupomCodigo = "";
+    private string? cupomMensagem;
+    private decimal descontoCupom;
+
+    private async Task AplicarCupom()
+    {
+        // A prévia calcula sobre o subtotal das COMPRAS (cupom não desconta aluguel).
+        var subtotalCompras = Cart.Itens
+            .Where(i => i.Tipo == TipoAquisicao.Compra)
+            .Sum(i => i.Subtotal);
+
+        var resultado = await CupomService.ValidarAsync(cupomCodigo, subtotalCompras);
+        cupomMensagem = resultado.Mensagem;
+        descontoCupom = resultado.Valido ? resultado.Desconto : 0;
+    }
+
+    private void RemoverCupom()
+    {
+        cupomCodigo = "";
+        cupomMensagem = null;
+        descontoCupom = 0;
+    }
 
     protected override async Task OnInitializedAsync()
     {
@@ -187,8 +240,12 @@ else
             // 3a) Compra → cria um Pedido (transação própria).
             if (itensCompra.Count > 0)
             {
-                var pedido = await PedidoService.FinalizarCompraAsync(userId, nome, itensCompra, enderecoEntrega);
-                partes.Add($"Pedido #{pedido.Id} (R$ {pedido.ValorTotal:N2})");
+                // Manda só o CÓDIGO do cupom (se aplicado) — o desconto é recalculado no servidor.
+                var codigoCupom = descontoCupom > 0 ? cupomCodigo : null;
+                var pedido = await PedidoService.FinalizarCompraAsync(userId, nome, itensCompra, enderecoEntrega, codigoCupom);
+                partes.Add(pedido.Desconto > 0
+                    ? $"Pedido #{pedido.Id} (R$ {pedido.ValorTotal:N2}, cupom −R$ {pedido.Desconto:N2})"
+                    : $"Pedido #{pedido.Id} (R$ {pedido.ValorTotal:N2})");
             }
 
             // 3b) Aluguel → cria os Aluguéis (transação própria).
@@ -199,8 +256,9 @@ else
                 partes.Add($"{alugueis.Count} aluguel(éis) (R$ {totalAluguel:N2})");
             }
 
-            // 4) Deu certo: esvazia o carrinho e monta a mensagem.
+            // 4) Deu certo: esvazia o carrinho (e o cupom) e monta a mensagem.
             Cart.Limpar();
+            RemoverCupom();
             sucesso = "Feito! " + string.Join(" e ", partes) + " — aguardando pagamento.";
         }
         catch (Exception ex)

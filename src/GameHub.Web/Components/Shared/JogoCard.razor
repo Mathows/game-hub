@@ -8,16 +8,31 @@
         }
         else
         {
-            <span>🎮</span>
+            <svg viewBox="0 0 24 24" width="48" height="48" fill="currentColor" aria-hidden="true"><path d="M7.9 5h8.2c2.6 0 4.8 1.9 5.1 4.5l.8 5.8a3.1 3.1 0 0 1-5.4 2.4l-1.8-2a2 2 0 0 0-1.5-.7h-2.6a2 2 0 0 0-1.5.7l-1.8 2a3.1 3.1 0 0 1-5.4-2.4l.8-5.8A5.2 5.2 0 0 1 7.9 5Zm.1 3a1 1 0 0 0-1 1v.8h-.8a1 1 0 1 0 0 2H7v.7a1 1 0 1 0 2 0v-.7h.8a1 1 0 1 0 0-2H9V9a1 1 0 0 0-1-1Zm7.3.3a1.1 1.1 0 1 0 0 2.2 1.1 1.1 0 0 0 0-2.2Zm2.5 2.5a1.1 1.1 0 1 0 0 2.2 1.1 1.1 0 0 0 0-2.2Z"/></svg>
         }
         @if (Jogo.Plataforma is not null)
         {
             <span class="pg-badge">@Jogo.Plataforma.Nome</span>
         }
+        @if (promocao is not null)
+        {
+            <span class="pg-badge" style="right:auto;left:.5rem;background:#b32121;color:#fff;border-color:#b32121;">PROMOÇÃO</span>
+        }
     </a>
     <div class="pg-card-body">
         <div class="pg-card-title">@Jogo.Titulo</div>
-        <div class="pg-card-price">R$ @Jogo.PrecoVenda.ToString("N2")</div>
+        @if (promocao is not null)
+        {
+            @* Preço antigo riscado + preço promocional em destaque. *@
+            <div class="pg-card-price">
+                <s style="opacity:.5;font-size:.85em;">R$ @Jogo.PrecoVenda.ToString("N2")</s>
+                <span class="gold"> R$ @promocao.PrecoPromocional.ToString("N2")</span>
+            </div>
+        }
+        else
+        {
+            <div class="pg-card-price">R$ @Jogo.PrecoVenda.ToString("N2")</div>
+        }
         <div class="pg-card-meta">Aluguel: R$ @Jogo.PrecoAluguelDia.ToString("N2") / dia</div>
         <div class="pg-card-actions">
             <a class="pg-btn pg-btn-gold" href="jogo/@Jogo.Id">Comprar</a>
@@ -29,4 +44,7 @@
 @code {
     // O card recebe o jogo de fora (parâmetro obrigatório).
     [Parameter, EditorRequired] public Jogo Jogo { get; set; } = default!;
+
+    // Promoção vigente (o repositório já traz só as ativas via filtered include).
+    private Promocao? promocao => Jogo.PromocaoVigente(DateTime.Now);
 }

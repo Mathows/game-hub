@@ -4,6 +4,7 @@ using GameHub.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace GameHub.Infrastructure.Migrations
 {
     [DbContext(typeof(GameHubDbContext))]
-    partial class GameHubDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260723150739_AddMotivoMovimentacao")]
+    partial class AddMotivoMovimentacao
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -710,69 +713,6 @@ namespace GameHub.Infrastructure.Migrations
                     b.ToTable("Promocoes");
                 });
 
-            modelBuilder.Entity("GameHub.Domain.Entities.PropostaVenda", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<DateTime?>("AtualizadoEm")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("AtualizadoPor")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<int>("ClienteId")
-                        .HasColumnType("int");
-
-                    b.Property<int>("Condicao")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime>("CriadoEm")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("CriadoPor")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<DateTime?>("DataResposta")
-                        .HasColumnType("datetime2");
-
-                    b.Property<int>("JogoId")
-                        .HasColumnType("int");
-
-                    b.Property<string>("ObservacaoCliente")
-                        .HasMaxLength(300)
-                        .HasColumnType("nvarchar(300)");
-
-                    b.Property<string>("RespostaAdmin")
-                        .HasMaxLength(300)
-                        .HasColumnType("nvarchar(300)");
-
-                    b.Property<int>("Status")
-                        .HasColumnType("int");
-
-                    b.Property<decimal?>("ValorAprovado")
-                        .HasPrecision(10, 2)
-                        .HasColumnType("decimal(10,2)");
-
-                    b.Property<decimal>("ValorPedido")
-                        .HasPrecision(10, 2)
-                        .HasColumnType("decimal(10,2)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ClienteId");
-
-                    b.HasIndex("JogoId");
-
-                    b.HasIndex("Status")
-                        .HasDatabaseName("IX_PropostaVenda_Status");
-
-                    b.ToTable("PropostasVenda");
-                });
-
             modelBuilder.Entity("GameHub.Domain.Entities.Troca", b =>
                 {
                     b.Property<int>("Id")
@@ -986,25 +926,6 @@ namespace GameHub.Infrastructure.Migrations
                         .HasForeignKey("JogoId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
-
-                    b.Navigation("Jogo");
-                });
-
-            modelBuilder.Entity("GameHub.Domain.Entities.PropostaVenda", b =>
-                {
-                    b.HasOne("GameHub.Domain.Entities.Cliente", "Cliente")
-                        .WithMany()
-                        .HasForeignKey("ClienteId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("GameHub.Domain.Entities.Jogo", "Jogo")
-                        .WithMany()
-                        .HasForeignKey("JogoId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("Cliente");
 
                     b.Navigation("Jogo");
                 });

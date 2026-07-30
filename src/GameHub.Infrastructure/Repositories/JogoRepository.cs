@@ -21,10 +21,13 @@ public class JogoRepository : IJogoRepository
 
     public async Task<List<Jogo>> ObterTodosAsync(int? plataformaId = null, string? busca = null)
     {
+        var agora = DateTime.Now;
         // Include = também traz os dados relacionados (plataforma e gênero) numa só consulta.
+        // FILTERED INCLUDE: das promoções, só as que valem AGORA (não carrega histórico à toa).
         var query = _context.Jogos
             .Include(j => j.Plataforma)
             .Include(j => j.Genero)
+            .Include(j => j.Promocoes.Where(p => p.Ativa && p.Inicio <= agora && agora <= p.Fim))
             .AsQueryable();
 
         if (plataformaId.HasValue)
@@ -37,17 +40,25 @@ public class JogoRepository : IJogoRepository
     }
 
     public async Task<List<Jogo>> ObterDestaquesAsync(int quantidade = 4)
-        => await _context.Jogos
+    {
+        var agora = DateTime.Now;
+        return await _context.Jogos
             .Include(j => j.Plataforma)
+            .Include(j => j.Promocoes.Where(p => p.Ativa && p.Inicio <= agora && agora <= p.Fim))
             .OrderByDescending(j => j.DataCadastro)
             .Take(quantidade)
             .ToListAsync();
+    }
 
     public async Task<Jogo?> ObterPorIdAsync(int id)
-        => await _context.Jogos
+    {
+        var agora = DateTime.Now;
+        return await _context.Jogos
             .Include(j => j.Plataforma)
             .Include(j => j.Genero)
+            .Include(j => j.Promocoes.Where(p => p.Ativa && p.Inicio <= agora && agora <= p.Fim))
             .FirstOrDefaultAsync(j => j.Id == id);
+    }
 
     public async Task AdicionarAsync(Jogo jogo)
     {

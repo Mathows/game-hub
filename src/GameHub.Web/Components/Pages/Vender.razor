@@ -1,0 +1,173 @@
+@page "/vender"
+@rendermode InteractiveServer
+@attribute [Microsoft.AspNetCore.Authorization.Authorize]
+@using System.Security.Claims
+@using GameHub.Domain.Entities
+@using GameHub.Domain.Enums
+@inject IJogoRepository JogoRepo
+@inject IPropostaVendaService PropostaService
+
+<PageTitle>Vender — GameHub</PageTitle>
+
+<div class="pg-section-head">
+    <h1>Vender para a <span class="gold">Loja</span></h1>
+</div>
+
+@if (mensagem is not null)
+{
+    <div class="pg-toast">@mensagem</div>
+}
+
+<div style="display:flex; gap:2rem; flex-wrap:wrap; align-items:flex-start;">
+
+    @* ---- Minhas propostas ---- *@
+    <div style="flex:2 1 420px;">
+        <h2 class="gold">Minhas propostas</h2>
+        @if (minhas is null)
+        {
+            <p class="pg-muted">Carregando...</p>
+        }
+        else if (minhas.Count == 0)
+        {
+            <div class="pg-empty">Você ainda não propôs nenhuma venda. Ofereça um jogo ao lado! →</div>
+        }
+        else
+        {
+            <table class="pg-table">
+                <thead>
+                    <tr><th>#</th><th>Jogo</th><th>Pedi</th><th>Loja pagou</th><th>Status</th><th>Resposta da loja</th><th></th></tr>
+                </thead>
+                <tbody>
+                    @foreach (var p in minhas)
+                    {
+                        <tr>
+                            <td>@p.Id</td>
+                            <td>@p.Jogo?.Titulo <span class="pg-muted">(@p.Condicao)</span></td>
+                            <td>R$ @p.ValorPedido.ToString("N2")</td>
+                            <td>@(p.ValorAprovado is null ? "—" : $"R$ {p.ValorAprovado:N2}")</td>
+                            <td>@RotuloStatus(p.Status)</td>
+                            <td class="pg-muted">@p.RespostaAdmin</td>
+                            <td style="text-align:right;">
+                                @if (p.Status == StatusPropostaVenda.Proposta)
+                                {
+                                    <button class="pg-btn pg-btn-ghost" @onclick="() => Cancelar(p.Id)">Cancelar</button>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+    </div>
+
+    @* ---- Nova proposta ---- *@
+    <div style="flex:1 1 300px;">
+        <h2 class="gold">Oferecer um jogo</h2>
+
+        <label>Jogo</label>
+        <select class="pg-input" @bind="form.JogoId">
+            <option value="0">— qual jogo você tem? —</option>
+            @if (jogos is not null)
+            {
+                @foreach (var j in jogos)
+                {
+                    <option value="@j.Id">@j.Titulo</option>
+                }
+            }
+        </select>
+
+        <label>Condição da sua cópia</label>
+        <select class="pg-input" @bind="form.Condicao">
+            <option value="@CondicaoJogo.Usado">Usado</option>
+            <option value="@CondicaoJogo.Novo">Novo (lacrado)</option>
+        </select>
+
+        <label>Quanto você quer (R$)</label>
+        <input class="pg-input" type="number" step="0.01" min="0" @bind="form.Valor" />
+
+        <label>Observação (opcional)</label>
+        <input class="pg-input" @bind="form.Observacao" placeholder="Ex.: com caixa e manual, sem riscos" />
+
+        <button class="pg-btn pg-btn-gold" style="margin-top:1rem;" @onclick="Propor" disabled="@ocupado">
+            Enviar proposta
+        </button>
+        <p class="pg-muted" style="margin-top:.5rem;">
+            A loja avalia e responde: pode aceitar (às vezes com outro valor) ou recusar com o motivo.
+        </p>
+    </div>
+</div>
+
+@code {
+    [CascadingParameter] private Task<AuthenticationState>? AuthState { get; set; }
+
+    private List<Jogo>? jogos;
+    private List<PropostaVenda>? minhas;
+    private string? userId;
+    private string? nome;
+    private string? mensagem;
+    private bool ocupado;
+    private FormModel form = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        var user = AuthState is null ? null : (await AuthState).User;
+        userId = user?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        nome = user?.Identity?.Name;
+        jogos = await JogoRepo.ObterTodosAsync();
+        await CarregarAsync();
+    }
+
+    private async Task CarregarAsync()
+    {
+        if (string.IsNullOrEmpty(userId)) { minhas = new(); return; }
+        minhas = await PropostaService.MinhasAsync(userId);
+    }
+
+    private async Task Propor()
+    {
+        mensagem = null;
+        if (string.IsNullOrEmpty(userId)) return;
+        if (form.JogoId <= 0) { mensagem = "⚠️ Escolha o jogo."; return; }
+        ocupado = true;
+        try
+        {
+            var proposta = await PropostaService.PropoAsync(userId, nome ?? "Cliente",
+                form.JogoId, form.Condicao, form.Valor, form.Observacao);
+            mensagem = $"✅ Proposta #{proposta.Id} enviada! A loja vai avaliar.";
+            form = new();
+            await CarregarAsync();
+        }
+        catch (Exception ex) { mensagem = "⚠️ " + ex.Message; }
+        finally { ocupado = false; }
+    }
+
+    private async Task Cancelar(int id)
+    {
+        mensagem = null;
+        try
+        {
+            await PropostaService.CancelarAsync(id, userId!);
+            mensagem = $"Proposta #{id} cancelada.";
+            await CarregarAsync();
+        }
+        catch (Exception ex) { mensagem = "⚠️ " + ex.Message; }
+    }
+
+    public static string RotuloStatus(StatusPropostaVenda s) => s switch
+    {
+        StatusPropostaVenda.Proposta => "Aguardando a loja",
+        StatusPropostaVenda.EmAvaliacao => "Em avaliação",
+        StatusPropostaVenda.Aprovada => "Aprovada",
+        StatusPropostaVenda.Recusada => "Recusada",
+        StatusPropostaVenda.Cancelada => "Cancelada",
+        _ => s.ToString()
+    };
+
+    private sealed class FormModel
+    {
+        public int JogoId { get; set; }
+        public CondicaoJogo Condicao { get; set; } = CondicaoJogo.Usado;
+        public decimal Valor { get; set; }
+        public string Observacao { get; set; } = "";
+    }
+}

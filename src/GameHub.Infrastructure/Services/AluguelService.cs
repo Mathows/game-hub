@@ -65,6 +65,17 @@ public class AluguelService : IAluguelService
                 };
                 _context.Alugueis.Add(aluguel);
                 alugueis.Add(aluguel);
+
+                // EXTRATO: baixa por aluguel registrada na mesma transação.
+                _context.MovimentacoesEstoque.Add(new MovimentacaoEstoque
+                {
+                    Jogo = jogo,
+                    Tipo = TipoMovimentacaoEstoque.Aluguel,
+                    Quantidade = -1,
+                    EstoqueDepois = jogo.QuantidadeEstoque,
+                    Aluguel = aluguel,                       // EF preenche o AluguelId ao salvar
+                    Observacao = $"Aluguel por {item.Dias} dia(s)"
+                });
             }
 
             await _context.SaveChangesAsync();

@@ -1,0 +1,162 @@
+@page "/admin/propostas"
+@rendermode InteractiveServer
+@using Microsoft.AspNetCore.SignalR
+@using GameHub.Domain.Entities
+@using GameHub.Domain.Enums
+@using GameHub.Web.Hubs
+@inject IPropostaVendaService PropostaService
+@inject IHubContext<NotificacaoHub> Notif
+
+<PageTitle>Propostas de Venda — Admin GameHub</PageTitle>
+
+<div class="pg-section-head">
+    <h1>Propostas de <span class="gold">Venda</span></h1>
+    <a class="pg-btn pg-btn-outline" href="admin/jogos">← Jogos</a>
+</div>
+
+@if (mensagem is not null)
+{
+    <div class="pg-toast">@mensagem</div>
+}
+
+@if (propostas is null)
+{
+    <p class="pg-muted">Carregando...</p>
+}
+else if (propostas.Count == 0)
+{
+    <div class="pg-empty">Nenhuma proposta de venda recebida ainda.</div>
+}
+else
+{
+    <table class="pg-table">
+        <thead>
+            <tr><th>#</th><th>Cliente</th><th>Jogo</th><th>Pedido</th><th>Obs. do cliente</th><th>Status</th><th style="min-width:280px;"></th></tr>
+        </thead>
+        <tbody>
+            @foreach (var p in propostas)
+            {
+                <tr>
+                    <td>@p.Id</td>
+                    <td>@p.Cliente?.Nome</td>
+                    <td>@p.Jogo?.Titulo <span class="pg-muted">(@p.Condicao)</span></td>
+                    <td>R$ @p.ValorPedido.ToString("N2")</td>
+                    <td class="pg-muted">@p.ObservacaoCliente</td>
+                    <td>@Vender.RotuloStatus(p.Status)</td>
+                    <td style="text-align:right;">
+                        @if (p.Status == StatusPropostaVenda.Proposta)
+                        {
+                            <button class="pg-btn pg-btn-outline" @onclick="() => IniciarAvaliacao(p.Id)" disabled="@ocupado">
+                                Avaliar
+                            </button>
+                        }
+                        else if (p.Status == StatusPropostaVenda.EmAvaliacao)
+                        {
+                            @if (respondendoId != p.Id)
+                            {
+                                <button class="pg-btn pg-btn-gold" @onclick="() => AbrirResposta(p)">Responder</button>
+                            }
+                        }
+                        else if (p.DataResposta is not null)
+                        {
+                            <span class="pg-muted">respondida em @p.DataResposta?.ToString("dd/MM HH:mm")</span>
+                        }
+                    </td>
+                </tr>
+                @if (respondendoId == p.Id)
+                {
+                    <tr>
+                        <td colspan="7" style="background:rgba(255,255,255,.03); padding:1rem;">
+                            <div style="display:flex; gap:.75rem; flex-wrap:wrap; align-items:flex-end;">
+                                <div>
+                                    <label>Valor a pagar (R$) — pode contrapor</label>
+                                    <input class="pg-input" type="number" step="0.01" min="0" @bind="valorAprovado" />
+                                </div>
+                                <div style="flex:1; min-width:220px;">
+                                    <label>Comentário / motivo</label>
+                                    <input class="pg-input" @bind="resposta" placeholder="Obrigatório na recusa" />
+                                </div>
+                                <button class="pg-btn pg-btn-gold" @onclick="() => Aprovar(p)" disabled="@ocupado">Aprovar</button>
+                                <button class="pg-btn pg-btn-ghost" @onclick="() => Recusar(p)" disabled="@ocupado">Recusar</button>
+                                <button class="pg-btn pg-btn-ghost" @onclick="() => respondendoId = null">fechar</button>
+                            </div>
+                            <p class="pg-muted" style="margin:.5rem 0 0;">
+                                Aprovar dá <strong>entrada de +1 no estoque</strong> (com linha no extrato) e registra o crédito ao cliente.
+                            </p>
+                        </td>
+                    </tr>
+                }
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    private List<PropostaVenda>? propostas;
+    private string? mensagem;
+    private bool ocupado;
+    private int? respondendoId;
+    private decimal valorAprovado;
+    private string resposta = "";
+
+    protected override async Task OnInitializedAsync() => await CarregarAsync();
+
+    private async Task CarregarAsync() => propostas = await PropostaService.TodasAsync();
+
+    private async Task IniciarAvaliacao(int id)
+    {
+        mensagem = null;
+        try
+        {
+            await PropostaService.IniciarAvaliacaoAsync(id);
+            await CarregarAsync();
+        }
+        catch (Exception ex) { mensagem = "⚠️ " + ex.Message; }
+    }
+
+    private void AbrirResposta(PropostaVenda p)
+    {
+        respondendoId = p.Id;
+        valorAprovado = p.ValorPedido;   // sugestão inicial: o valor pedido (o admin pode mudar)
+        resposta = "";
+    }
+
+    private async Task Aprovar(PropostaVenda p)
+    {
+        mensagem = null;
+        ocupado = true;
+        try
+        {
+            var aprovada = await PropostaService.AprovarAsync(p.Id, valorAprovado, resposta);
+            mensagem = $"✅ Proposta #{p.Id} aprovada — +1 no estoque de {aprovada.Jogo?.Titulo}, crédito de R$ {valorAprovado:N2} ao cliente.";
+            await NotificarDono(aprovada, $"Sua proposta de venda #{aprovada.Id} foi APROVADA! A loja pagará R$ {valorAprovado:N2}. 🎉");
+            respondendoId = null;
+            await CarregarAsync();
+        }
+        catch (Exception ex) { mensagem = "⚠️ " + ex.Message; }
+        finally { ocupado = false; }
+    }
+
+    private async Task Recusar(PropostaVenda p)
+    {
+        mensagem = null;
+        ocupado = true;
+        try
+        {
+            var recusada = await PropostaService.RecusarAsync(p.Id, resposta);
+            mensagem = $"Proposta #{p.Id} recusada.";
+            await NotificarDono(recusada, $"Sua proposta de venda #{recusada.Id} foi recusada: {resposta}");
+            respondendoId = null;
+            await CarregarAsync();
+        }
+        catch (Exception ex) { mensagem = "⚠️ " + ex.Message; }
+        finally { ocupado = false; }
+    }
+
+    // Push em TEMPO REAL só para o dono da proposta (grupo user-{id} — padrão da Fase 5).
+    private async Task NotificarDono(PropostaVenda p, string texto)
+    {
+        if (p.Cliente?.ApplicationUserId is string donoId)
+            await Notif.Clients.Group(NotificacaoHub.GrupoDoUsuario(donoId)).SendAsync("Notificacao", texto);
+    }
+}

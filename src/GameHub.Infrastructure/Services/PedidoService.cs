@@ -21,7 +21,7 @@ public class PedidoService : IPedidoService
         _context = context;
     }
 
-    public async Task<Pedido> FinalizarCompraAsync(string applicationUserId, string nomeCliente, IReadOnlyList<ItemCompra> itens, EnderecoEntrega? enderecoEntrega)
+    public async Task<Pedido> FinalizarCompraAsync(string applicationUserId, string nomeCliente, IReadOnlyList<ItemCompra> itens, EnderecoEntrega? enderecoEntrega, string? cupomCodigo = null)
     {
         if (itens is null || itens.Count == 0)
             throw new InvalidOperationException("Não há itens de compra no carrinho.");
@@ -53,9 +53,14 @@ public class PedidoService : IPedidoService
 
             decimal total = 0m;
 
+            var agora = DateTime.Now;
             foreach (var item in itens)
             {
-                var jogo = await _context.Jogos.FirstOrDefaultAsync(j => j.Id == item.JogoId)
+                // Traz as promoções vigentes junto: o preço cobrado é decidido AQUI (servidor),
+                // nunca o que veio da tela — segurança básica de e-commerce.
+                var jogo = await _context.Jogos
+                    .Include(j => j.Promocoes.Where(p => p.Ativa && p.Inicio <= agora && agora <= p.Fim))
+                    .FirstOrDefaultAsync(j => j.Id == item.JogoId)
                     ?? throw new InvalidOperationException($"Jogo {item.JogoId} não encontrado.");
 
                 // Regra de negócio: não vender mais do que tem em estoque.
@@ -65,14 +70,43 @@ public class PedidoService : IPedidoService
 
                 jogo.QuantidadeEstoque -= item.Quantidade;   // BAIXA DE ESTOQUE
 
+                // EXTRATO: a baixa vira uma linha de movimentação, na MESMA transação —
+                // ou grava pedido + baixa + extrato, ou nada (nunca extrato "furado").
+                _context.MovimentacoesEstoque.Add(new MovimentacaoEstoque
+                {
+                    Jogo = jogo,
+                    Tipo = TipoMovimentacaoEstoque.Venda,
+                    Quantidade = -item.Quantidade,               // saída = negativa
+                    EstoqueDepois = jogo.QuantidadeEstoque,      // o "saldo" após o movimento
+                    Pedido = pedido,                             // referência (EF preenche o PedidoId ao salvar)
+                    Observacao = "Venda"
+                });
+
                 var itemPedido = new ItemPedido
                 {
                     Jogo = jogo,
                     Quantidade = item.Quantidade,
-                    PrecoUnitario = jogo.PrecoVenda          // preço "congelado" no momento da compra
+                    PrecoUnitario = jogo.PrecoVigente(agora)  // preço VIGENTE, congelado no momento da compra
                 };
                 pedido.Itens.Add(itemPedido);
                 total += itemPedido.PrecoUnitario * itemPedido.Quantidade;
+            }
+
+            // ---- Cupom: a validação QUE VALE (dentro da transação; a prévia do carrinho
+            // é só cortesia). A tela mandou o CÓDIGO — o desconto é calculado AQUI. ----
+            if (!string.IsNullOrWhiteSpace(cupomCodigo))
+            {
+                var codigo = cupomCodigo.Trim().ToUpperInvariant();
+                var cupom = await _context.Cupons.FirstOrDefaultAsync(c => c.Codigo == codigo)
+                    ?? throw new InvalidOperationException($"Cupom \"{codigo}\" não encontrado.");
+
+                if (!cupom.ValidoEm(agora))
+                    throw new InvalidOperationException($"O cupom \"{codigo}\" não está mais válido.");
+
+                pedido.Cupom = cupom;
+                pedido.Desconto = cupom.CalcularDesconto(total);   // desconto CONGELADO (snapshot)
+                cupom.Usos++;                                      // consome 1 uso (na mesma transação!)
+                total -= pedido.Desconto;
             }
 
             pedido.ValorTotal = total;
