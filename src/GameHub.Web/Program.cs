@@ -180,6 +180,15 @@ builder.Services.AddScoped<IPagamentoService, PagamentoService>();
 // sandbox do Mercado Pago amanhã, trocando só esta linha.
 builder.Services.AddScoped<IPagamentoProvider, PagamentoProviderSimulado>();
 
+// Fechamento da contabilidade (Fase 9): CSV índice + XMLs zipados. O HttpClient tipado
+// já sai com o x-api-key do PlugNotas para baixar os XMLs (o token fica no servidor).
+builder.Services.AddHttpClient<IContabilidadeService, ContabilidadeService>(c =>
+{
+    c.DefaultRequestHeaders.Add("x-api-key",
+        builder.Configuration["NotaFiscal:PlugNotas:Token"] ?? "2da392a6-79d2-4304-a8b7-959572c7e44d");
+    c.Timeout = TimeSpan.FromSeconds(30);
+});
+
 // HttpClient usado SÓ pelo simulador de pagamento (DEV) para chamar o nosso próprio
 // webhook. O callback custom de certificado aceita o certificado de desenvolvimento
 // do localhost (não usar isso em produção).
@@ -272,6 +281,9 @@ app.MapWebhookEndpoints();
 
 // Download de XML/DANFE da nota (autenticado, valida o dono).
 app.MapNotaFiscalEndpoints();
+
+// Pacote mensal da contabilidade (só Admin).
+app.MapContabilidadeEndpoints();
 
 // Hub do chat de trocas (SignalR).
 app.MapHub<TrocaChatHub>("/hubs/troca-chat");
