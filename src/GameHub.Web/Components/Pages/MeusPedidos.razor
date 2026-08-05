@@ -38,6 +38,7 @@ else
                 <th>Data</th>
                 <th>Itens</th>
                 <th>Total</th>
+                <th>Pagamento</th>
                 <th>Status</th>
                 <th></th>
             </tr>
@@ -50,12 +51,19 @@ else
                     <td>@p.DataPedido.ToString("dd/MM/yyyy HH:mm")</td>
                     <td>@p.Itens.Sum(i => i.Quantidade) item(ns)</td>
                     <td>R$ @p.ValorTotal.ToString("N2")</td>
+                    <td>@(p.FormaPagamento?.ToString() ?? "—")</td>
                     <td>
                         <span class="gold">@p.Status</span>
                     </td>
                     <td style="text-align:right;">
                         @if (p.Status == StatusPedido.Pendente)
                         {
+                            @if (p.Cobranca is not null)
+                            {
+                                <button class="pg-btn pg-btn-outline" @onclick="() => pagandoId = pagandoId == p.Id ? null : p.Id">
+                                    Como pagar
+                                </button>
+                            }
                             <button class="pg-btn pg-btn-gold" @onclick="() => SimularPagamento(p.Id)" disabled="@processando">
                                 Simular pagamento
                             </button>
@@ -66,6 +74,27 @@ else
                         }
                     </td>
                 </tr>
+                @if (pagandoId == p.Id && p.Cobranca is not null)
+                {
+                    <tr>
+                        <td colspan="7" style="background:rgba(255,255,255,.03); padding:1rem;">
+                            @if (p.Cobranca.Forma == FormaPagamento.Pix)
+                            {
+                                <strong class="gold">PIX copia e cola</strong>
+                                <input class="pg-input" readonly value="@p.Cobranca.PixCopiaECola"
+                                       onclick="this.select()" style="margin-top:.4rem; font-family:monospace; font-size:.8rem;" />
+                            }
+                            else if (p.Cobranca.Forma == FormaPagamento.Boleto)
+                            {
+                                <strong class="gold">Boleto — linha digitável</strong>
+                                <input class="pg-input" readonly value="@p.Cobranca.BoletoLinhaDigitavel"
+                                       onclick="this.select()" style="margin-top:.4rem; font-family:monospace;" />
+                                <p class="pg-muted" style="margin:.4rem 0 0;">Vencimento: @p.Cobranca.BoletoVencimento?.ToString("dd/MM/yyyy")</p>
+                            }
+                            <p class="pg-muted" style="margin:.5rem 0 0;">@p.Cobranca.Instrucao</p>
+                        </td>
+                    </tr>
+                }
             }
         </tbody>
     </table>
@@ -82,6 +111,7 @@ else
     private string? userId;
     private string? mensagem;
     private bool processando;
+    private int? pagandoId;   // pedido com o painel "como pagar" aberto
 
     protected override async Task OnInitializedAsync()
     {

@@ -176,6 +176,10 @@ else
 // Pagamento: confirma o pedido quando o webhook chega (Scoped, usa o DbContext).
 builder.Services.AddScoped<IPagamentoService, PagamentoService>();
 
+// Cobrança (Fase 9): provider plugável — simulado hoje (PIX/boleto em formato realista);
+// sandbox do Mercado Pago amanhã, trocando só esta linha.
+builder.Services.AddScoped<IPagamentoProvider, PagamentoProviderSimulado>();
+
 // HttpClient usado SÓ pelo simulador de pagamento (DEV) para chamar o nosso próprio
 // webhook. O callback custom de certificado aceita o certificado de desenvolvimento
 // do localhost (não usar isso em produção).

@@ -19,7 +19,8 @@ public interface IPedidoService
     /// <param name="cupomCodigo">
     /// CÓDIGO do cupom (ou null). Só o código: quem valida e calcula o desconto é o servidor.
     /// </param>
-    Task<Pedido> FinalizarCompraAsync(string applicationUserId, string nomeCliente, IReadOnlyList<ItemCompra> itens, EnderecoEntrega? enderecoEntrega, string? cupomCodigo = null);
+    /// <param name="formaPagamento">Como o cliente vai pagar (gera a cobrança correspondente).</param>
+    Task<Pedido> FinalizarCompraAsync(string applicationUserId, string nomeCliente, IReadOnlyList<ItemCompra> itens, EnderecoEntrega? enderecoEntrega, string? cupomCodigo = null, Enums.FormaPagamento formaPagamento = Enums.FormaPagamento.Pix);
 
     /// <summary>Lista os pedidos de um usuário (mais recentes primeiro), com itens e jogos.</summary>
     Task<List<Pedido>> ObterPorUsuarioAsync(string applicationUserId);

@@ -15,13 +15,15 @@ namespace GameHub.Infrastructure.Services;
 public class PedidoService : IPedidoService
 {
     private readonly GameHubDbContext _context;
+    private readonly IPagamentoProvider _pagamentoProvider;
 
-    public PedidoService(GameHubDbContext context)
+    public PedidoService(GameHubDbContext context, IPagamentoProvider pagamentoProvider)
     {
         _context = context;
+        _pagamentoProvider = pagamentoProvider;
     }
 
-    public async Task<Pedido> FinalizarCompraAsync(string applicationUserId, string nomeCliente, IReadOnlyList<ItemCompra> itens, EnderecoEntrega? enderecoEntrega, string? cupomCodigo = null)
+    public async Task<Pedido> FinalizarCompraAsync(string applicationUserId, string nomeCliente, IReadOnlyList<ItemCompra> itens, EnderecoEntrega? enderecoEntrega, string? cupomCodigo = null, FormaPagamento formaPagamento = FormaPagamento.Pix)
     {
         if (itens is null || itens.Count == 0)
             throw new InvalidOperationException("Não há itens de compra no carrinho.");
@@ -48,7 +50,8 @@ public class PedidoService : IPedidoService
                 Cliente = cliente,
                 DataPedido = DateTime.Now,
                 Status = StatusPedido.Pendente,    // vira "Pago" via webhook (Passo 4)
-                EnderecoEntrega = enderecoEntrega  // SNAPSHOT do endereço no momento da compra
+                EnderecoEntrega = enderecoEntrega, // SNAPSHOT do endereço no momento da compra
+                FormaPagamento = formaPagamento    // como o cliente escolheu pagar (Fase 9)
             };
 
             decimal total = 0m;
@@ -112,6 +115,20 @@ public class PedidoService : IPedidoService
             pedido.ValorTotal = total;
             _context.Pedidos.Add(pedido);
 
+            // ---- COBRANÇA: o "como pagar" nasce junto com o pedido, na MESMA transação.
+            // O provider (plugável) gera o artefato da forma escolhida: PIX copia-e-cola,
+            // boleto com linha digitável, ou instrução do gateway de cartão.
+            var dadosCobranca = await _pagamentoProvider.GerarCobrancaAsync(pedido, formaPagamento);
+            _context.Cobrancas.Add(new Cobranca
+            {
+                Pedido = pedido,
+                Forma = formaPagamento,
+                PixCopiaECola = dadosCobranca.PixCopiaECola,
+                BoletoLinhaDigitavel = dadosCobranca.BoletoLinhaDigitavel,
+                BoletoVencimento = dadosCobranca.BoletoVencimento,
+                Instrucao = dadosCobranca.Instrucao
+            });
+
             await _context.SaveChangesAsync();   // gera os INSERTs/UPDATEs (ainda dentro da transação)
             await transacao.CommitAsync();       // CONFIRMA tudo de uma vez
             return pedido;
@@ -127,6 +144,7 @@ public class PedidoService : IPedidoService
         => await _context.Pedidos
             .AsNoTracking()                                   // leitura pura: não rastreia (traz sempre dados FRESCOS do banco)
             .Include(p => p.Itens).ThenInclude(i => i.Jogo)   // traz os itens e o jogo de cada um
+            .Include(p => p.Cobranca)                         // a cobrança (como pagar) junto
             .Where(p => p.Cliente!.ApplicationUserId == applicationUserId)
             .OrderByDescending(p => p.DataPedido)
             .ToListAsync();
