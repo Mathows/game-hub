@@ -38,6 +38,13 @@ public class NotaFiscal : IAuditavel
     /// <summary>Por que o emissor rejeitou (o cliente merece saber o que corrigir).</summary>
     public string? MotivoRejeicao { get; set; }
 
+    // Links dos ARQUIVOS no emissor (o PlugNotas devolve no resumo): o XML é o documento
+    // fiscal OFICIAL (o que o contador escritura); o PDF é a DANFE (representação visual).
+    // O download pro cliente passa pelo NOSSO endpoint autenticado (valida o dono) — o
+    // jeito moderno do VisualizarNFe.ashx do legado.
+    public string? UrlXml { get; set; }
+    public string? UrlPdf { get; set; }
+
     // Toda transição de status vira uma linha aqui (o LogStatusNotaFiscal do FinFix).
     public ICollection<HistoricoStatusNota> Historico { get; set; } = new List<HistoricoStatusNota>();
 

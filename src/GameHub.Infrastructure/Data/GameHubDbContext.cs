@@ -107,6 +107,8 @@ public class GameHubDbContext : DbContext
             nf.Property(x => x.ChaveAcesso).HasMaxLength(44);
             nf.Property(x => x.Protocolo).HasMaxLength(40);
             nf.Property(x => x.MotivoRejeicao).HasMaxLength(300);
+            nf.Property(x => x.UrlXml).HasMaxLength(300);
+            nf.Property(x => x.UrlPdf).HasMaxLength(300);
             nf.Property(x => x.ValorTotal).HasPrecision(10, 2);
             nf.HasOne(x => x.Pedido).WithMany().HasForeignKey(x => x.PedidoId).OnDelete(DeleteBehavior.Restrict);
         });
