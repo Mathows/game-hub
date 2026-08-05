@@ -2,8 +2,9 @@ using GameHub.Domain.Entities;
 
 namespace GameHub.Domain.Interfaces;
 
-/// <summary>Resposta do emissor: autorizou (chave + protocolo) ou rejeitou (motivo).</summary>
-public record ResultadoEmissao(bool Autorizada, string? ChaveAcesso, string? Protocolo, string? MotivoRejeicao);
+/// <summary>Resposta do emissor: autorizou (chave + protocolo + links dos arquivos) ou rejeitou (motivo).</summary>
+public record ResultadoEmissao(bool Autorizada, string? ChaveAcesso, string? Protocolo, string? MotivoRejeicao,
+    string? UrlXml = null, string? UrlPdf = null);
 
 /// <summary>
 /// O "lado SEFAZ" da emissão — PROVIDER PLUGÁVEL (Sistema.md §4.1):

@@ -118,7 +118,9 @@ public class NotaFiscalProviderPlugNotas : INotaFiscalProvider
                         Autorizada: true,
                         ChaveAcesso: resumo.Chave,
                         Protocolo: $"{resumo.Protocolo} (PlugNotas nº {resumo.Numero}/{resumo.Serie})",
-                        MotivoRejeicao: null);
+                        MotivoRejeicao: null,
+                        UrlXml: resumo.Xml,      // o XML é o documento fiscal oficial
+                        UrlPdf: resumo.Pdf);     // a DANFE em PDF
                 }
                 if (resumo?.Status == "REJEITADO")
                     return new ResultadoEmissao(false, null, null,
@@ -160,5 +162,7 @@ public class NotaFiscalProviderPlugNotas : INotaFiscalProvider
         [JsonPropertyName("serie")] public string? Serie { get; set; }
         [JsonPropertyName("protocolo")] public string? Protocolo { get; set; }
         [JsonPropertyName("mensagem")] public string? Mensagem { get; set; }
+        [JsonPropertyName("xml")] public string? Xml { get; set; }
+        [JsonPropertyName("pdf")] public string? Pdf { get; set; }
     }
 }

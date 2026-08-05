@@ -266,6 +266,9 @@ app.MapAdditionalIdentityEndpoints();
 // Endpoint do webhook de pagamento (POST /webhooks/pagamento).
 app.MapWebhookEndpoints();
 
+// Download de XML/DANFE da nota (autenticado, valida o dono).
+app.MapNotaFiscalEndpoints();
+
 // Hub do chat de trocas (SignalR).
 app.MapHub<TrocaChatHub>("/hubs/troca-chat");
 

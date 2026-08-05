@@ -84,6 +84,8 @@ public class EmissorNotaFiscal : IEmissorNotaFiscal
                 nota.Protocolo = resultado.Protocolo;
                 nota.DataAutorizacao = DateTime.Now;
                 nota.MotivoRejeicao = null;
+                nota.UrlXml = resultado.UrlXml;   // links dos arquivos no emissor (se houver)
+                nota.UrlPdf = resultado.UrlPdf;
                 nota.Historico.Add(new HistoricoStatusNota
                 {
                     StatusAnterior = statusAnterior,

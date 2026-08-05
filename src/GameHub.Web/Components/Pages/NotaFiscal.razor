@@ -51,6 +51,15 @@ else
                 }
                 @if (nota.Status == StatusNotaFiscal.Autorizada)
                 {
+                    @* Download via NOSSO endpoint autenticado (valida o dono e faz proxy do emissor). *@
+                    @if (!string.IsNullOrEmpty(nota.UrlPdf))
+                    {
+                        <a class="pg-btn pg-btn-gold" href="nota/@PedidoId/download/pdf" target="_blank">Baixar DANFE</a>
+                    }
+                    @if (!string.IsNullOrEmpty(nota.UrlXml))
+                    {
+                        <a class="pg-btn pg-btn-outline" href="nota/@PedidoId/download/xml" target="_blank">Baixar XML</a>
+                    }
                     <button class="pg-btn pg-btn-outline" onclick="window.print()">Imprimir</button>
                 }
             </div>
