@@ -182,6 +182,7 @@ public class GameHubDbContext : DbContext
         modelBuilder.Entity<Jogo>().Property(j => j.PrecoVenda).HasPrecision(10, 2);
         modelBuilder.Entity<Jogo>().Property(j => j.PrecoAluguelDia).HasPrecision(10, 2);
         modelBuilder.Entity<Pedido>().Property(p => p.ValorTotal).HasPrecision(10, 2);
+        modelBuilder.Entity<Pedido>().Property(p => p.ValorFrete).HasPrecision(10, 2);
         modelBuilder.Entity<ItemPedido>().Property(i => i.PrecoUnitario).HasPrecision(10, 2);
         modelBuilder.Entity<Aluguel>().Property(a => a.ValorTotal).HasPrecision(10, 2);
 

@@ -93,6 +93,9 @@ builder.Services.AddScoped<ICupomService, CupomService>();
 // Estoque: extrato + ajuste manual (Scoped, usa o DbContext).
 builder.Services.AddScoped<IEstoqueService, EstoqueService>();
 
+// Frete (Fase 10): simulado por tabela de região do CEP (Correios real = contrato pago).
+builder.Services.AddScoped<IFreteService, FreteSimuladoService>();
+
 // Vender pra loja: workflow de aprovação (Scoped, usa o DbContext).
 builder.Services.AddScoped<IPropostaVendaService, PropostaVendaService>();
 

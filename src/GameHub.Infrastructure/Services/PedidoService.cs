@@ -16,11 +16,13 @@ public class PedidoService : IPedidoService
 {
     private readonly GameHubDbContext _context;
     private readonly IPagamentoProvider _pagamentoProvider;
+    private readonly IFreteService _frete;
 
-    public PedidoService(GameHubDbContext context, IPagamentoProvider pagamentoProvider)
+    public PedidoService(GameHubDbContext context, IPagamentoProvider pagamentoProvider, IFreteService frete)
     {
         _context = context;
         _pagamentoProvider = pagamentoProvider;
+        _frete = frete;
     }
 
     public async Task<Pedido> FinalizarCompraAsync(string applicationUserId, string nomeCliente, IReadOnlyList<ItemCompra> itens, EnderecoEntrega? enderecoEntrega, string? cupomCodigo = null, FormaPagamento formaPagamento = FormaPagamento.Pix)
@@ -110,6 +112,15 @@ public class PedidoService : IPedidoService
                 pedido.Desconto = cupom.CalcularDesconto(total);   // desconto CONGELADO (snapshot)
                 cupom.Usos++;                                      // consome 1 uso (na mesma transação!)
                 total -= pedido.Desconto;
+            }
+
+            // ---- FRETE: calculado NO SERVIDOR a partir do CEP de entrega (a tela só exibe
+            // a prévia). Ordem da conta: itens − desconto do cupom + frete. ----
+            if (enderecoEntrega is not null)
+            {
+                var frete = await _frete.CalcularAsync(enderecoEntrega.Cep, itens.Sum(i => i.Quantidade));
+                pedido.ValorFrete = frete.Valor;
+                total += frete.Valor;
             }
 
             pedido.ValorTotal = total;

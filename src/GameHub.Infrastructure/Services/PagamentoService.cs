@@ -43,6 +43,7 @@ public class PagamentoService : IPagamentoService
             return true;
 
         pedido.Status = StatusPedido.Pago;
+        pedido.DataPagamento = DateTime.Now;   // base do rastreio simulado (Fase 10)
         await _context.SaveChangesAsync();
 
         // Pagamento confirmado → envia o e-mail de confirmação (só na 1ª vez).
