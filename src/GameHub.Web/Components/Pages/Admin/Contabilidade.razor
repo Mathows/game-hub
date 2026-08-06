@@ -1,0 +1,91 @@
+@page "/admin/contabilidade"
+@rendermode InteractiveServer
+@using GameHub.Domain.Entities
+@using GameHub.Domain.Enums
+@inject IContabilidadeService ContabilidadeService
+
+<PageTitle>Contabilidade — Admin GameHub</PageTitle>
+
+<div class="pg-section-head">
+    <h1>Fechamento da <span class="gold">Contabilidade</span></h1>
+    <a class="pg-btn pg-btn-outline" href="admin/dashboard">← Dashboard</a>
+</div>
+
+<p class="pg-muted" style="max-width:720px;">
+    Gera o pacote mensal para o contador: um <strong>CSV índice</strong> (com verificação da
+    <strong>sequência numérica</strong> — buraco na numeração vira "INUTILIZAR") e os
+    <strong>XMLs</strong> das notas autorizadas (o documento fiscal oficial), tudo num ZIP.
+</p>
+
+<div style="display:flex; gap:.75rem; align-items:flex-end; flex-wrap:wrap; margin:1rem 0;">
+    <div>
+        <label>Mês</label>
+        <select class="pg-input" @bind="mes">
+            @for (var m = 1; m <= 12; m++)
+            {
+                <option value="@m">@(new DateTime(2000, m, 1).ToString("MMMM"))</option>
+            }
+        </select>
+    </div>
+    <div>
+        <label>Ano</label>
+        <select class="pg-input" @bind="ano">
+            @for (var a = DateTime.Today.Year; a >= DateTime.Today.Year - 3; a--)
+            {
+                <option value="@a">@a</option>
+            }
+        </select>
+    </div>
+    <button class="pg-btn pg-btn-outline" @onclick="CarregarAsync">Ver notas do período</button>
+    @if (notas is { Count: > 0 })
+    {
+        @* O download é um GET no endpoint (só Admin) — o ZIP é gerado na hora, em memória. *@
+        <a class="pg-btn pg-btn-gold" href="admin/contabilidade/pacote/@ano/@mes" target="_blank">
+            Baixar pacote (ZIP)
+        </a>
+    }
+</div>
+
+@if (notas is null)
+{
+    <p class="pg-muted">Escolha o período e clique em "Ver notas do período".</p>
+}
+else if (notas.Count == 0)
+{
+    <div class="pg-empty">Nenhuma nota emitida em @mes/@ano.</div>
+}
+else
+{
+    <p class="pg-muted">
+        @notas.Count nota(s) no período —
+        @notas.Count(n => n.Status == StatusNotaFiscal.Autorizada) autorizada(s),
+        @notas.Count(n => n.Status == StatusNotaFiscal.Rejeitada) rejeitada(s).
+        Sem XML no emissor (ex.: provider simulado): @notas.Count(n => n.Status == StatusNotaFiscal.Autorizada && string.IsNullOrEmpty(n.UrlXml)).
+    </p>
+    <table class="pg-table">
+        <thead><tr><th>Nº</th><th>Pedido</th><th>Cliente</th><th>Status</th><th>Emissão</th><th>Valor</th><th>XML</th></tr></thead>
+        <tbody>
+            @foreach (var n in notas)
+            {
+                <tr>
+                    <td>@n.Numero.ToString("D9")</td>
+                    <td>#@n.PedidoId</td>
+                    <td>@n.Pedido?.Cliente?.Nome</td>
+                    <td>@n.Status</td>
+                    <td>@n.DataEmissao.ToString("dd/MM HH:mm")</td>
+                    <td>R$ @n.ValorTotal.ToString("N2")</td>
+                    <td class="pg-muted">@(string.IsNullOrEmpty(n.UrlXml) ? "—" : "no emissor")</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    private int mes = DateTime.Today.Month;
+    private int ano = DateTime.Today.Year;
+    private List<NotaFiscal>? notas;
+
+    private async Task CarregarAsync() =>
+        notas = await ContabilidadeService.ListarPeriodoAsync(ano, mes);
+}

@@ -21,6 +21,12 @@ public class Pedido : IAuditavel
     // Nulo enquanto o pedido não tem entrega definida (ex.: pedidos antigos).
     public EnderecoEntrega? EnderecoEntrega { get; set; }
 
+    // Como o cliente escolheu pagar (Fase 9). Nulo nos pedidos de antes da feature.
+    public FormaPagamento? FormaPagamento { get; set; }
+
+    // A cobrança gerada no checkout (1:1 — navegação para a tela mostrar o "como pagar").
+    public Cobranca? Cobranca { get; set; }
+
     // Cupom aplicado (se houver) + o desconto CONGELADO em R$ no momento da compra.
     // Guardamos o valor calculado (snapshot) — se o cupom mudar depois, o pedido não muda.
     public int? CupomId { get; set; }

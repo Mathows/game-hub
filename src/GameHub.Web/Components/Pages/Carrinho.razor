@@ -2,6 +2,7 @@
 @rendermode InteractiveServer
 @using System.Security.Claims
 @using GameHub.Domain.Entities
+@using GameHub.Domain.Enums
 @inject CarrinhoService Cart
 @inject IPedidoService PedidoService
 @inject IAluguelService AluguelService
@@ -89,6 +90,19 @@ else
         </div>
     }
 
+    @* ---- Forma de pagamento (a pergunta de todo checkout de verdade — Fase 9) ---- *@
+    @if (Cart.Itens.Any(i => i.Tipo == TipoAquisicao.Compra))
+    {
+        <div style="margin:1rem 0;">
+            <h3 class="gold">Forma de pagamento</h3>
+            <select class="pg-input" @bind="formaPagamento" style="max-width:420px;">
+                <option value="@FormaPagamento.Pix">PIX — aprovação na hora</option>
+                <option value="@FormaPagamento.Boleto">Boleto — vence em 3 dias</option>
+                <option value="@FormaPagamento.Cartao">Cartão de crédito</option>
+            </select>
+        </div>
+    }
+
     @* ---- Cupom de desconto (vale para os itens de COMPRA) ---- *@
     @if (Cart.Itens.Any(i => i.Tipo == TipoAquisicao.Compra))
     {
@@ -139,6 +153,9 @@ else
     // Agenda do cliente (para escolher o endereço de entrega) + o id escolhido.
     private List<Endereco>? enderecos;
     private int enderecoSelecionadoId;
+
+    // Forma de pagamento escolhida (default PIX — a mais comum no Brasil).
+    private FormaPagamento formaPagamento = FormaPagamento.Pix;
 
     // Cupom: código digitado + resultado da PRÉVIA (a validação que vale é a do servidor).
     private string cupomCodigo = "";
@@ -242,7 +259,7 @@ else
             {
                 // Manda só o CÓDIGO do cupom (se aplicado) — o desconto é recalculado no servidor.
                 var codigoCupom = descontoCupom > 0 ? cupomCodigo : null;
-                var pedido = await PedidoService.FinalizarCompraAsync(userId, nome, itensCompra, enderecoEntrega, codigoCupom);
+                var pedido = await PedidoService.FinalizarCompraAsync(userId, nome, itensCompra, enderecoEntrega, codigoCupom, formaPagamento);
                 partes.Add(pedido.Desconto > 0
                     ? $"Pedido #{pedido.Id} (R$ {pedido.ValorTotal:N2}, cupom −R$ {pedido.Desconto:N2})"
                     : $"Pedido #{pedido.Id} (R$ {pedido.ValorTotal:N2})");

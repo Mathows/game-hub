@@ -25,6 +25,7 @@ public class GameHubDbContext : DbContext
     public DbSet<MotivoMovimentacao> MotivosMovimentacao => Set<MotivoMovimentacao>();
     public DbSet<PropostaVenda> PropostasVenda => Set<PropostaVenda>();
     public DbSet<NotaFiscal> NotasFiscais => Set<NotaFiscal>();
+    public DbSet<Cobranca> Cobrancas => Set<Cobranca>();
     public DbSet<HistoricoStatusNota> HistoricosStatusNota => Set<HistoricoStatusNota>();
     public DbSet<Plataforma> Plataformas => Set<Plataforma>();
     public DbSet<Genero> Generos => Set<Genero>();
@@ -97,6 +98,18 @@ public class GameHubDbContext : DbContext
         modelBuilder.Entity<MotivoMovimentacao>(mm =>
         {
             mm.Property(x => x.Descricao).HasMaxLength(100).IsRequired();
+        });
+
+        // ---- Cobrança: 1:1 com o Pedido (mesmo padrão da NotaFiscal) ----
+        modelBuilder.Entity<Cobranca>(c =>
+        {
+            c.HasIndex(x => x.PedidoId).IsUnique().HasDatabaseName("UX_Cobranca_Pedido");
+            c.Property(x => x.PixCopiaECola).HasMaxLength(300);
+            c.Property(x => x.BoletoLinhaDigitavel).HasMaxLength(60);
+            c.Property(x => x.Instrucao).HasMaxLength(200);
+            // 1:1 de verdade (WithOne): dá a navegação Pedido.Cobranca pras telas.
+            c.HasOne(x => x.Pedido).WithOne(p => p.Cobranca)
+             .HasForeignKey<Cobranca>(x => x.PedidoId).OnDelete(DeleteBehavior.Restrict);
         });
 
         // ---- Nota fiscal: 1:1 com o Pedido, GARANTIDO PELO SCHEMA (índice único) ----
