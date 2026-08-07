@@ -91,8 +91,12 @@ else
                 @if (frete is not null)
                 {
                     <p class="pg-muted" style="margin-top:.4rem;">
-                        Frete: <span class="gold">R$ @frete.Valor.ToString("N2")</span> — @frete.Descricao
+                        Frete: <span class="gold">@(frete.Valor == 0 ? "GRÁTIS" : $"R$ {frete.Valor:N2}")</span> — @frete.Descricao
                     </p>
+                }
+                else if (freteErro is not null)
+                {
+                    <p style="margin-top:.4rem; color:#ff8a8a;">⚠️ @freteErro</p>
                 }
             }
         </div>
@@ -171,15 +175,26 @@ else
 
     // Prévia do frete (o valor QUE VALE é recalculado no servidor ao finalizar).
     private ResultadoFrete? frete;
+    private string? freteErro;
 
     private async Task CalcularFreteAsync()
     {
         frete = null;
+        freteErro = null;
         var endereco = enderecos?.FirstOrDefault(e => e.Id == enderecoSelecionadoId);
-        var qtd = Cart.Itens.Where(i => i.Tipo == TipoAquisicao.Compra).Sum(i => i.Quantidade);
+        var compras = Cart.Itens.Where(i => i.Tipo == TipoAquisicao.Compra).ToList();
+        var qtd = compras.Sum(i => i.Quantidade);
         if (endereco is null || qtd == 0) return;
-        try { frete = await FreteService.CalcularAsync(endereco.Cep, qtd); }
-        catch { /* CEP inválido: sem prévia (o servidor barra ao finalizar) */ }
+        try
+        {
+            // Passa o subtotal das compras: é a base da regra de FRETE GRÁTIS.
+            frete = await FreteService.CalcularAsync(endereco.Cep, qtd, compras.Sum(i => i.Subtotal));
+        }
+        catch (Exception ex)
+        {
+            // CEP inválido ou região sem entrega: mostra o motivo (o servidor barra ao finalizar).
+            freteErro = ex.Message;
+        }
     }
 
     // Cupom: código digitado + resultado da PRÉVIA (a validação que vale é a do servidor).

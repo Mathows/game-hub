@@ -41,6 +41,15 @@ public class NotaFiscalProviderPlugNotas : INotaFiscalProvider
         var idIntegracao = $"GH-{pedido.Id}-{DateTime.Now:yyyyMMddHHmmss}";
         var endereco = pedido.EnderecoEntrega;
 
+        // ---- RATEIO de frete e desconto pelos ITENS (regra da NF-e) ----
+        // Na nota, frete e desconto NÃO são "itens": cada item tem seu vFrete/vDesc, e o
+        // total da nota = Σ itens + frete − desconto. Isso PRECISA fechar com o pagamento,
+        // senão a SEFAZ/emissor rejeita (foi o que aprendemos com o erro do 'valorTroco').
+        var itensPedido = pedido.Itens.ToList();
+        var subtotais = itensPedido.Select(i => i.PrecoUnitario * i.Quantidade).ToList();
+        var fretePorItem = Ratear(pedido.ValorFrete, subtotais);
+        var descontoPorItem = Ratear(pedido.Desconto, subtotais);
+
         var payload = new[]
         {
             new
@@ -68,7 +77,7 @@ public class NotaFiscalProviderPlugNotas : INotaFiscalProvider
                         cep = endereco?.Cep ?? "12223180"
                     }
                 },
-                itens = pedido.Itens.Select(i => new
+                itens = itensPedido.Select((i, indice) => new
                 {
                     codigo = i.JogoId.ToString(),
                     descricao = i.Jogo?.Titulo ?? $"Jogo {i.JogoId}",
@@ -76,6 +85,8 @@ public class NotaFiscalProviderPlugNotas : INotaFiscalProvider
                     cfop = "5102",                         // venda de mercadoria adquirida
                     valorUnitario = new { comercial = i.PrecoUnitario, tributavel = i.PrecoUnitario },
                     quantidade = new { comercial = i.Quantidade, tributavel = i.Quantidade },
+                    valorFrete = fretePorItem[indice],       // vFrete (soma no total da nota)
+                    valorDesconto = descontoPorItem[indice], // vDesc (subtrai do total)
                     tributos = new
                     {
                         icms = new { origem = "0", cst = "102" },   // Simples Nacional
@@ -131,6 +142,34 @@ public class NotaFiscalProviderPlugNotas : INotaFiscalProvider
 
         return new ResultadoEmissao(false, null, null,
             "A nota ainda está em processamento no emissor — tente reemitir em instantes.");
+    }
+
+    /// <summary>
+    /// Rateia um valor (frete/desconto) entre os itens, proporcional ao subtotal de cada um.
+    /// O ÚLTIMO item recebe a diferença de arredondamento — assim a soma rateada é EXATAMENTE
+    /// o valor original (centavo por centavo). Sem isso, o total da nota não fecharia com o
+    /// pagamento e o emissor rejeitaria.
+    /// </summary>
+    private static List<decimal> Ratear(decimal valor, List<decimal> pesos)
+    {
+        var rateio = pesos.Select(_ => 0m).ToList();
+        if (valor <= 0 || pesos.Count == 0) return rateio;
+
+        var totalPesos = pesos.Sum();
+        if (totalPesos <= 0)                       // sem base de rateio: tudo no primeiro item
+        {
+            rateio[0] = valor;
+            return rateio;
+        }
+
+        var acumulado = 0m;
+        for (var i = 0; i < pesos.Count - 1; i++)
+        {
+            rateio[i] = Math.Round(valor * (pesos[i] / totalPesos), 2);
+            acumulado += rateio[i];
+        }
+        rateio[^1] = valor - acumulado;            // o resto vai no último (fecha a conta)
+        return rateio;
     }
 
     private static string ExtrairMensagemErro(string corpo)

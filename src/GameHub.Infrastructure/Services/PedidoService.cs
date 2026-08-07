@@ -97,6 +97,8 @@ public class PedidoService : IPedidoService
                 total += itemPedido.PrecoUnitario * itemPedido.Quantidade;
             }
 
+            var subtotalItens = total;   // itens, ANTES do desconto (base do frete grátis)
+
             // ---- Cupom: a validação QUE VALE (dentro da transação; a prévia do carrinho
             // é só cortesia). A tela mandou o CÓDIGO — o desconto é calculado AQUI. ----
             if (!string.IsNullOrWhiteSpace(cupomCodigo))
@@ -118,7 +120,9 @@ public class PedidoService : IPedidoService
             // a prévia). Ordem da conta: itens − desconto do cupom + frete. ----
             if (enderecoEntrega is not null)
             {
-                var frete = await _frete.CalcularAsync(enderecoEntrega.Cep, itens.Sum(i => i.Quantidade));
+                // subtotalItens = antes do desconto (base da regra de frete grátis).
+                var frete = await _frete.CalcularAsync(
+                    enderecoEntrega.Cep, itens.Sum(i => i.Quantidade), subtotalItens);
                 pedido.ValorFrete = frete.Valor;
                 total += frete.Valor;
             }
