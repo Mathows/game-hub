@@ -124,6 +124,7 @@ public class PedidoService : IPedidoService
                 var frete = await _frete.CalcularAsync(
                     enderecoEntrega.Cep, itens.Sum(i => i.Quantidade), subtotalItens);
                 pedido.ValorFrete = frete.Valor;
+                pedido.PrazoEntregaDias = frete.PrazoDias;   // snapshot do prazo prometido
                 total += frete.Valor;
             }
 

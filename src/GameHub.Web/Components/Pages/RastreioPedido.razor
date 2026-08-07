@@ -1,0 +1,143 @@
+@* Arquivo chamado RastreioPedido (e não Rastreio) de propósito: o nome do arquivo vira o
+   nome da CLASSE do componente, e "Rastreio" já é o record do Domain — daria conflito.
+   A ROTA continua /rastreio/{id}. *@
+@page "/rastreio/{PedidoId:int}"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize]
+@using System.Security.Claims
+@using GameHub.Domain.Enums
+@using GameHub.Domain.Services
+@inject IPedidoService PedidoService
+@inject CalculadoraRastreio Calculadora
+
+<PageTitle>Rastreio — Pedido #@PedidoId</PageTitle>
+
+<div class="pg-section-head">
+    <h1>Rastrear <span class="gold">Pedido #@PedidoId</span></h1>
+    <a class="pg-btn pg-btn-outline" href="meus-pedidos">← Meus pedidos</a>
+</div>
+
+@if (carregando)
+{
+    <p class="pg-muted">Consultando...</p>
+}
+else if (rastreio is null)
+{
+    <div class="pg-empty">@erro</div>
+}
+else
+{
+    <div class="pg-card" style="padding:1.25rem; max-width:760px;">
+        <div style="display:flex; justify-content:space-between; gap:1rem; flex-wrap:wrap;">
+            <div>
+                <div class="pg-muted">Código de rastreio</div>
+                <div class="gold" style="font-family:monospace; font-size:1.3rem; font-weight:700;">@rastreio.Codigo</div>
+            </div>
+            <div style="text-align:right;">
+                <div class="pg-muted">Situação</div>
+                <div style="font-size:1.1rem; font-weight:600;">@Rotulo(rastreio.Status)</div>
+                @if (rastreio.PrevisaoEntrega is not null && rastreio.Status != StatusRastreio.Entregue)
+                {
+                    <div class="pg-muted" style="font-size:.85rem;">
+                        previsão: @rastreio.PrevisaoEntrega.Value.ToString("dd/MM/yyyy")
+                    </div>
+                }
+            </div>
+        </div>
+
+        @if (endereco is not null)
+        {
+            <p class="pg-muted" style="margin:1rem 0 0;">
+                Entrega em: @endereco.Logradouro, @endereco.Numero — @endereco.Bairro, @endereco.Cidade/@endereco.Uf
+            </p>
+        }
+    </div>
+
+    @if (rastreio.Eventos.Count == 0)
+    {
+        <div class="pg-empty" style="margin-top:1rem;">
+            O objeto será postado assim que o pagamento for confirmado.
+            <a href="meus-pedidos">Ver formas de pagamento</a>
+        </div>
+    }
+    else
+    {
+        <h2 class="gold" style="margin-top:2rem;">Linha do tempo</h2>
+        <div style="max-width:760px;">
+            @* Mais recente primeiro (como nos Correios); eventos futuros aparecem esmaecidos. *@
+            @foreach (var e in rastreio.Eventos.OrderByDescending(x => x.Quando))
+            {
+                <div style="display:flex; gap:1rem; padding:.85rem 0; border-bottom:1px solid var(--pg-border); opacity:@(e.Concluido ? "1" : ".45");">
+                    <div style="min-width:8px; padding-top:.35rem;">
+                        @* Bolinha da timeline: dourada = já aconteceu; vazia = previsto. *@
+                        <div style="width:10px; height:10px; border-radius:50%; border:2px solid var(--pg-gold);
+                                    background:@(e.Concluido ? "var(--pg-gold)" : "transparent");"></div>
+                    </div>
+                    <div style="min-width:130px;" class="pg-muted">
+                        @e.Quando.ToString("dd/MM/yyyy HH:mm")
+                    </div>
+                    <div>
+                        <div style="font-weight:600;">@e.Titulo</div>
+                        <div class="pg-muted" style="font-size:.85rem;">@e.Local</div>
+                        @if (!e.Concluido)
+                        {
+                            <div class="pg-muted" style="font-size:.8rem; font-style:italic;">previsto</div>
+                        }
+                    </div>
+                </div>
+            }
+        </div>
+
+        <p class="pg-muted" style="margin-top:1.5rem; font-size:.8rem; max-width:760px;">
+            Rastreio <strong>simulado</strong>: os eventos são calculados a partir da data do pagamento
+            e do prazo prometido na compra (@prazo dia(s) úteis) — por isso a linha do tempo "anda"
+            sozinha conforme os dias passam, sem nenhum processo em segundo plano.
+        </p>
+    }
+}
+
+@code {
+    [Parameter] public int PedidoId { get; set; }
+    [CascadingParameter] private Task<AuthenticationState>? AuthState { get; set; }
+
+    private Rastreio? rastreio;
+    private GameHub.Domain.Entities.EnderecoEntrega? endereco;
+    private int prazo;
+    private string? erro;
+    private bool carregando = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var user = AuthState is null ? null : (await AuthState).User;
+        var userId = user?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (string.IsNullOrEmpty(userId))
+        {
+            erro = "Entre na sua conta para rastrear.";
+            carregando = false;
+            return;
+        }
+
+        // ObterPorIdAsync já valida que o pedido é DO USUÁRIO (segurança no servidor).
+        var pedido = await PedidoService.ObterPorIdAsync(PedidoId, userId);
+        if (pedido is null)
+        {
+            erro = "Pedido não encontrado.";
+        }
+        else
+        {
+            rastreio = Calculadora.Calcular(pedido, DateTime.Now);
+            endereco = pedido.EnderecoEntrega;
+            prazo = pedido.PrazoEntregaDias;
+        }
+        carregando = false;
+    }
+
+    private static string Rotulo(StatusRastreio s) => s switch
+    {
+        StatusRastreio.AguardandoPagamento => "Aguardando pagamento",
+        StatusRastreio.Postado => "Postado",
+        StatusRastreio.EmTransito => "Em trânsito",
+        StatusRastreio.SaiuParaEntrega => "Saiu para entrega",
+        StatusRastreio.Entregue => "Entregue",
+        _ => s.ToString()
+    };
+}
