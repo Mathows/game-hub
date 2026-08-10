@@ -1,0 +1,81 @@
+@page "/admin/expedicao"
+@rendermode InteractiveServer
+@using Microsoft.EntityFrameworkCore
+@using GameHub.Domain.Entities
+@using GameHub.Domain.Enums
+@using GameHub.Domain.Services
+@using GameHub.Infrastructure.Data
+@inject GameHubDbContext Db
+@inject CalculadoraRastreio Calculadora
+
+<PageTitle>Expedição — Admin GameHub</PageTitle>
+
+<div class="pg-section-head">
+    <h1><span class="gold">Expedição</span></h1>
+    <a class="pg-btn pg-btn-outline" href="admin/dashboard">← Dashboard</a>
+</div>
+
+<p class="pg-muted" style="max-width:740px;">
+    Pedidos <strong>pagos</strong> prontos para despacho. Imprima a etiqueta, cole no pacote e
+    poste — o cliente acompanha pelo código de rastreio.
+</p>
+
+@if (pedidos is null)
+{
+    <p class="pg-muted">Carregando...</p>
+}
+else if (pedidos.Count == 0)
+{
+    <div class="pg-empty">Nenhum pedido pago aguardando expedição.</div>
+}
+else
+{
+    <table class="pg-table">
+        <thead>
+            <tr><th>Pedido</th><th>Cliente</th><th>Destino</th><th>Itens</th><th>Rastreio</th><th>Situação</th><th></th></tr>
+        </thead>
+        <tbody>
+            @foreach (var p in pedidos)
+            {
+                var rastreio = Calculadora.Calcular(p, DateTime.Now);
+                <tr>
+                    <td>#@p.Id</td>
+                    <td>@p.Cliente?.Nome</td>
+                    <td class="pg-muted">
+                        @if (p.EnderecoEntrega is not null)
+                        {
+                            @($"{p.EnderecoEntrega.Cidade}/{p.EnderecoEntrega.Uf} · {p.EnderecoEntrega.Cep}")
+                        }
+                        else
+                        {
+                            <text>— sem endereço —</text>
+                        }
+                    </td>
+                    <td>@p.Itens.Sum(i => i.Quantidade)</td>
+                    <td style="font-family:monospace;">@rastreio.Codigo</td>
+                    <td>@rastreio.Status</td>
+                    <td style="text-align:right;">
+                        @if (p.EnderecoEntrega is not null)
+                        {
+                            <a class="pg-btn pg-btn-gold" href="admin/etiqueta/@p.Id" target="_blank">Etiqueta</a>
+                        }
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    private List<Pedido>? pedidos;
+
+    protected override async Task OnInitializedAsync()
+    {
+        pedidos = await Db.Pedidos.AsNoTracking()
+            .Include(p => p.Cliente)
+            .Include(p => p.Itens).ThenInclude(i => i.Jogo)
+            .Where(p => p.Status == StatusPedido.Pago)
+            .OrderByDescending(p => p.DataPagamento)
+            .ToListAsync();
+    }
+}

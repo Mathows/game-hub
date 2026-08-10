@@ -93,6 +93,10 @@ builder.Services.AddScoped<ICupomService, CupomService>();
 // Estoque: extrato + ajuste manual (Scoped, usa o DbContext).
 builder.Services.AddScoped<IEstoqueService, EstoqueService>();
 
+// Frete (Fase 10): tabela PRÓPRIA — fórmula no código, VALORES NO BANCO (editáveis em
+// /admin/frete, sem deploy). Correios real exige contrato pago; provider plugável.
+builder.Services.AddScoped<IFreteService, FreteTabelaService>();
+
 // Vender pra loja: workflow de aprovação (Scoped, usa o DbContext).
 builder.Services.AddScoped<IPropostaVendaService, PropostaVendaService>();
 
@@ -134,6 +138,8 @@ builder.Services.AddScoped<IPedidoService, PedidoService>();
 // (só faz conta, sem estado). Aqui os 3 tempos de vida convivem no projeto:
 // Singleton (IEmailSender) · Scoped (repos/serviços/carrinho) · Transient (calculadora).
 builder.Services.AddTransient<CalculadoraAluguel>();
+// Rastreio (Fase 10): regra PURA (função do tempo), sem estado e sem I/O → Transient.
+builder.Services.AddTransient<CalculadoraRastreio>();
 builder.Services.AddScoped<IAluguelService, AluguelService>();
 
 // Nota fiscal (Fase 8): PROVIDER plugável com INTERRUPTOR no appsettings

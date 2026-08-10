@@ -8,6 +8,7 @@
 @inject IAluguelService AluguelService
 @inject IEnderecoService EnderecoService
 @inject ICupomService CupomService
+@inject IFreteService FreteService
 
 <PageTitle>Carrinho — GameHub</PageTitle>
 
@@ -78,7 +79,8 @@ else
             }
             else
             {
-                <select class="pg-input" @bind="enderecoSelecionadoId" style="max-width:520px;">
+                @* @bind:after = roda um método DEPOIS do bind atualizar (recalcula o frete). *@
+                <select class="pg-input" @bind="enderecoSelecionadoId" @bind:after="CalcularFreteAsync" style="max-width:520px;">
                     @foreach (var e in enderecos)
                     {
                         <option value="@e.Id">
@@ -86,6 +88,16 @@ else
                         </option>
                     }
                 </select>
+                @if (frete is not null)
+                {
+                    <p class="pg-muted" style="margin-top:.4rem;">
+                        Frete: <span class="gold">@(frete.Valor == 0 ? "GRÁTIS" : $"R$ {frete.Valor:N2}")</span> — @frete.Descricao
+                    </p>
+                }
+                else if (freteErro is not null)
+                {
+                    <p style="margin-top:.4rem; color:#ff8a8a;">⚠️ @freteErro</p>
+                }
             }
         </div>
     }
@@ -130,11 +142,15 @@ else
     <div class="pg-cart-footer">
         <button class="pg-btn pg-btn-ghost" @onclick="Cart.Limpar" disabled="@processando">Esvaziar carrinho</button>
         <div class="pg-cart-total">
-            @if (descontoCupom > 0)
+            @if (descontoCupom > 0 || (frete?.Valor ?? 0) > 0)
             {
-                <span class="pg-muted" style="font-size:.85em;">Subtotal: R$ @Cart.ValorTotal.ToString("N2") • Desconto: −R$ @descontoCupom.ToString("N2")</span><br />
+                <span class="pg-muted" style="font-size:.85em;">
+                    Subtotal: R$ @Cart.ValorTotal.ToString("N2")
+                    @if (descontoCupom > 0) {<text> • Desconto: −R$ @descontoCupom.ToString("N2")</text>}
+                    @if ((frete?.Valor ?? 0) > 0) {<text> • Frete: +R$ @frete!.Valor.ToString("N2")</text>}
+                </span><br />
             }
-            Total: <span class="gold">R$ @((Cart.ValorTotal - descontoCupom).ToString("N2"))</span>
+            Total: <span class="gold">R$ @((Cart.ValorTotal - descontoCupom + (frete?.Valor ?? 0)).ToString("N2"))</span>
         </div>
         <button class="pg-btn pg-btn-gold" @onclick="Finalizar" disabled="@(processando || Cart.Itens.Count == 0)">
             @(processando ? "Processando..." : "Finalizar")
@@ -156,6 +172,30 @@ else
 
     // Forma de pagamento escolhida (default PIX — a mais comum no Brasil).
     private FormaPagamento formaPagamento = FormaPagamento.Pix;
+
+    // Prévia do frete (o valor QUE VALE é recalculado no servidor ao finalizar).
+    private ResultadoFrete? frete;
+    private string? freteErro;
+
+    private async Task CalcularFreteAsync()
+    {
+        frete = null;
+        freteErro = null;
+        var endereco = enderecos?.FirstOrDefault(e => e.Id == enderecoSelecionadoId);
+        var compras = Cart.Itens.Where(i => i.Tipo == TipoAquisicao.Compra).ToList();
+        var qtd = compras.Sum(i => i.Quantidade);
+        if (endereco is null || qtd == 0) return;
+        try
+        {
+            // Passa o subtotal das compras: é a base da regra de FRETE GRÁTIS.
+            frete = await FreteService.CalcularAsync(endereco.Cep, qtd, compras.Sum(i => i.Subtotal));
+        }
+        catch (Exception ex)
+        {
+            // CEP inválido ou região sem entrega: mostra o motivo (o servidor barra ao finalizar).
+            freteErro = ex.Message;
+        }
+    }
 
     // Cupom: código digitado + resultado da PRÉVIA (a validação que vale é a do servidor).
     private string cupomCodigo = "";
@@ -191,6 +231,7 @@ else
         // Default: o endereço principal (ou o primeiro), se houver.
         var padrao = enderecos.FirstOrDefault(e => e.Principal) ?? enderecos.FirstOrDefault();
         if (padrao is not null) enderecoSelecionadoId = padrao.Id;
+        await CalcularFreteAsync();   // prévia do frete já com o endereço padrão
     }
 
     private async Task Finalizar()

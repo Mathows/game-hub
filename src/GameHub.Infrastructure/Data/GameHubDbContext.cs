@@ -26,6 +26,8 @@ public class GameHubDbContext : DbContext
     public DbSet<PropostaVenda> PropostasVenda => Set<PropostaVenda>();
     public DbSet<NotaFiscal> NotasFiscais => Set<NotaFiscal>();
     public DbSet<Cobranca> Cobrancas => Set<Cobranca>();
+    public DbSet<RegiaoFrete> RegioesFrete => Set<RegiaoFrete>();
+    public DbSet<ConfiguracaoFrete> ConfiguracoesFrete => Set<ConfiguracaoFrete>();
     public DbSet<HistoricoStatusNota> HistoricosStatusNota => Set<HistoricoStatusNota>();
     public DbSet<Plataforma> Plataformas => Set<Plataforma>();
     public DbSet<Genero> Generos => Set<Genero>();
@@ -98,6 +100,20 @@ public class GameHubDbContext : DbContext
         modelBuilder.Entity<MotivoMovimentacao>(mm =>
         {
             mm.Property(x => x.Descricao).HasMaxLength(100).IsRequired();
+        });
+
+        // ---- Tabela de frete: valores no BANCO (editáveis pelo admin), fórmula no código ----
+        modelBuilder.Entity<RegiaoFrete>(r =>
+        {
+            r.Property(x => x.Nome).HasMaxLength(60).IsRequired();
+            r.Property(x => x.Fator).HasPrecision(5, 2);
+            r.HasIndex(x => x.DigitoCep).IsUnique().HasDatabaseName("UX_RegiaoFrete_Digito");
+        });
+        modelBuilder.Entity<ConfiguracaoFrete>(c =>
+        {
+            c.Property(x => x.ValorBase).HasPrecision(10, 2);
+            c.Property(x => x.ValorPorItem).HasPrecision(10, 2);
+            c.Property(x => x.FreteGratisAcimaDe).HasPrecision(10, 2);
         });
 
         // ---- Cobrança: 1:1 com o Pedido (mesmo padrão da NotaFiscal) ----
@@ -182,6 +198,7 @@ public class GameHubDbContext : DbContext
         modelBuilder.Entity<Jogo>().Property(j => j.PrecoVenda).HasPrecision(10, 2);
         modelBuilder.Entity<Jogo>().Property(j => j.PrecoAluguelDia).HasPrecision(10, 2);
         modelBuilder.Entity<Pedido>().Property(p => p.ValorTotal).HasPrecision(10, 2);
+        modelBuilder.Entity<Pedido>().Property(p => p.ValorFrete).HasPrecision(10, 2);
         modelBuilder.Entity<ItemPedido>().Property(i => i.PrecoUnitario).HasPrecision(10, 2);
         modelBuilder.Entity<Aluguel>().Property(a => a.ValorTotal).HasPrecision(10, 2);
 
@@ -243,6 +260,24 @@ public class GameHubDbContext : DbContext
 
         // Data fixa no seed (o EF exige valor constante aqui, não pode ser DateTime.Now).
         var dataSeed = new DateTime(2026, 6, 24);
+
+        // Tabela de frete "de fábrica" — a loja fica em São José dos Campos/SP (região 1),
+        // então o fator cresce conforme a distância. O admin pode editar tudo na tela.
+        modelBuilder.Entity<ConfiguracaoFrete>().HasData(
+            new ConfiguracaoFrete { Id = 1, ValorBase = 12.90m, ValorPorItem = 2.50m, PrazoBaseDias = 2, FreteGratisAcimaDe = 0m, CriadoEm = dataSeed, CriadoPor = "seed" }
+        );
+        modelBuilder.Entity<RegiaoFrete>().HasData(
+            new RegiaoFrete { Id = 1, DigitoCep = 0, Nome = "Grande São Paulo", Fator = 1.0m, DiasExtras = 1, Ativo = true, CriadoEm = dataSeed, CriadoPor = "seed" },
+            new RegiaoFrete { Id = 2, DigitoCep = 1, Nome = "Interior de SP", Fator = 0.8m, DiasExtras = 0, Ativo = true, CriadoEm = dataSeed, CriadoPor = "seed" },
+            new RegiaoFrete { Id = 3, DigitoCep = 2, Nome = "RJ / ES", Fator = 1.2m, DiasExtras = 2, Ativo = true, CriadoEm = dataSeed, CriadoPor = "seed" },
+            new RegiaoFrete { Id = 4, DigitoCep = 3, Nome = "Minas Gerais", Fator = 1.3m, DiasExtras = 2, Ativo = true, CriadoEm = dataSeed, CriadoPor = "seed" },
+            new RegiaoFrete { Id = 5, DigitoCep = 4, Nome = "BA / SE", Fator = 1.6m, DiasExtras = 4, Ativo = true, CriadoEm = dataSeed, CriadoPor = "seed" },
+            new RegiaoFrete { Id = 6, DigitoCep = 5, Nome = "PE / AL / PB / RN", Fator = 1.8m, DiasExtras = 5, Ativo = true, CriadoEm = dataSeed, CriadoPor = "seed" },
+            new RegiaoFrete { Id = 7, DigitoCep = 6, Nome = "CE / PI / MA / Norte", Fator = 1.9m, DiasExtras = 6, Ativo = true, CriadoEm = dataSeed, CriadoPor = "seed" },
+            new RegiaoFrete { Id = 8, DigitoCep = 7, Nome = "DF / GO / TO / MT / MS", Fator = 1.5m, DiasExtras = 4, Ativo = true, CriadoEm = dataSeed, CriadoPor = "seed" },
+            new RegiaoFrete { Id = 9, DigitoCep = 8, Nome = "PR / SC", Fator = 1.3m, DiasExtras = 3, Ativo = true, CriadoEm = dataSeed, CriadoPor = "seed" },
+            new RegiaoFrete { Id = 10, DigitoCep = 9, Nome = "Rio Grande do Sul", Fator = 1.4m, DiasExtras = 3, Ativo = true, CriadoEm = dataSeed, CriadoPor = "seed" }
+        );
 
         // Motivos "de fábrica" (o admin pode cadastrar outros pela tela — é a graça do lookup).
         modelBuilder.Entity<MotivoMovimentacao>().HasData(

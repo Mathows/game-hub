@@ -243,3 +243,38 @@ h1, h2, h3 { color: var(--pg-text); font-family: var(--pg-font-display); letter-
 
 /* No header novo, empurra as ações pra direita (a busca é o elemento flexível). */
 .pg-header-inner { justify-content: space-between; }
+
+/* ---------- Etiqueta de envio (Fase 10) ---------- */
+/* Fundo BRANCO e texto preto de propósito: papel não usa tema escuro (tinta + leitura). */
+.pg-etiqueta {
+    background: #fff; color: #000; width: 400px; max-width: 100%;
+    border: 2px solid #000; border-radius: 4px; padding: 0;
+    font-family: var(--pg-font-body);
+}
+.pg-etiqueta-topo {
+    display: flex; justify-content: space-between; align-items: flex-start;
+    padding: .75rem .9rem; border-bottom: 2px solid #000;
+}
+.pg-etiqueta-logo { font-family: var(--pg-font-display); font-weight: 700; font-size: 1.25rem; letter-spacing: 1px; }
+.pg-etiqueta-mini { font-size: .68rem; letter-spacing: 1px; text-transform: uppercase; color: #555; }
+.pg-etiqueta-bloco { padding: .75rem .9rem; border-bottom: 1px dashed #999; line-height: 1.35; }
+.pg-etiqueta-cep { font-size: 1.2rem; font-weight: 700; letter-spacing: 2px; margin-top: .35rem; }
+.pg-etiqueta-codigo {
+    text-align: center; font-family: monospace; font-size: 1.05rem; font-weight: 700;
+    letter-spacing: 3px; padding: 0 0 .6rem;
+}
+.pg-etiqueta-rodape { padding: .6rem .9rem; font-size: .7rem; color: #444; border-top: 2px solid #000; }
+
+/* "Código de barras": barras verticais de larguras variadas (representação visual). */
+.pg-barras { display: flex; align-items: stretch; height: 64px; padding: .9rem .9rem .35rem; }
+.pg-barras .pg-barra { display: block; background: #000; }
+.pg-barras .pg-espaco { display: block; background: #fff; }
+
+/* ---------- Impressão ---------- */
+@media print {
+    /* Só a etiqueta vai ao papel: cabeçalho, menu, botões e rodapé do site somem. */
+    .pg-header, .pg-footer, .pg-drawer, .pg-menu-overlay, .pg-nao-imprime, #blazor-error-ui { display: none !important; }
+    .pg-main { padding: 0 !important; max-width: none !important; }
+    body { background: #fff !important; }
+    .pg-etiqueta { border-color: #000; page-break-inside: avoid; }
+}

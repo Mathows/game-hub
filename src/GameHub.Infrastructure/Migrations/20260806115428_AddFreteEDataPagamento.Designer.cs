@@ -4,6 +4,7 @@ using GameHub.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace GameHub.Infrastructure.Migrations
 {
     [DbContext(typeof(GameHubDbContext))]
-    partial class GameHubDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260806115428_AddFreteEDataPagamento")]
+    partial class AddFreteEDataPagamento
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -156,58 +159,6 @@ namespace GameHub.Infrastructure.Migrations
                         .HasDatabaseName("UX_Cobranca_Pedido");
 
                     b.ToTable("Cobrancas");
-                });
-
-            modelBuilder.Entity("GameHub.Domain.Entities.ConfiguracaoFrete", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<DateTime?>("AtualizadoEm")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("AtualizadoPor")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<DateTime>("CriadoEm")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("CriadoPor")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<decimal>("FreteGratisAcimaDe")
-                        .HasPrecision(10, 2)
-                        .HasColumnType("decimal(10,2)");
-
-                    b.Property<int>("PrazoBaseDias")
-                        .HasColumnType("int");
-
-                    b.Property<decimal>("ValorBase")
-                        .HasPrecision(10, 2)
-                        .HasColumnType("decimal(10,2)");
-
-                    b.Property<decimal>("ValorPorItem")
-                        .HasPrecision(10, 2)
-                        .HasColumnType("decimal(10,2)");
-
-                    b.HasKey("Id");
-
-                    b.ToTable("ConfiguracoesFrete");
-
-                    b.HasData(
-                        new
-                        {
-                            Id = 1,
-                            CriadoEm = new DateTime(2026, 6, 24, 0, 0, 0, 0, DateTimeKind.Unspecified),
-                            CriadoPor = "seed",
-                            FreteGratisAcimaDe = 0m,
-                            PrazoBaseDias = 2,
-                            ValorBase = 12.90m,
-                            ValorPorItem = 2.50m
-                        });
                 });
 
             modelBuilder.Entity("GameHub.Domain.Entities.Cupom", b =>
@@ -828,9 +779,6 @@ namespace GameHub.Infrastructure.Migrations
                     b.Property<int?>("FormaPagamento")
                         .HasColumnType("int");
 
-                    b.Property<int>("PrazoEntregaDias")
-                        .HasColumnType("int");
-
                     b.Property<int>("Status")
                         .HasColumnType("int");
 
@@ -1001,165 +949,6 @@ namespace GameHub.Infrastructure.Migrations
                         .HasDatabaseName("IX_PropostaVenda_Status");
 
                     b.ToTable("PropostasVenda");
-                });
-
-            modelBuilder.Entity("GameHub.Domain.Entities.RegiaoFrete", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<bool>("Ativo")
-                        .HasColumnType("bit");
-
-                    b.Property<DateTime?>("AtualizadoEm")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("AtualizadoPor")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<DateTime>("CriadoEm")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("CriadoPor")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<int>("DiasExtras")
-                        .HasColumnType("int");
-
-                    b.Property<int>("DigitoCep")
-                        .HasColumnType("int");
-
-                    b.Property<decimal>("Fator")
-                        .HasPrecision(5, 2)
-                        .HasColumnType("decimal(5,2)");
-
-                    b.Property<string>("Nome")
-                        .IsRequired()
-                        .HasMaxLength(60)
-                        .HasColumnType("nvarchar(60)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("DigitoCep")
-                        .IsUnique()
-                        .HasDatabaseName("UX_RegiaoFrete_Digito");
-
-                    b.ToTable("RegioesFrete");
-
-                    b.HasData(
-                        new
-                        {
-                            Id = 1,
-                            Ativo = true,
-                            CriadoEm = new DateTime(2026, 6, 24, 0, 0, 0, 0, DateTimeKind.Unspecified),
-                            CriadoPor = "seed",
-                            DiasExtras = 1,
-                            DigitoCep = 0,
-                            Fator = 1.0m,
-                            Nome = "Grande São Paulo"
-                        },
-                        new
-                        {
-                            Id = 2,
-                            Ativo = true,
-                            CriadoEm = new DateTime(2026, 6, 24, 0, 0, 0, 0, DateTimeKind.Unspecified),
-                            CriadoPor = "seed",
-                            DiasExtras = 0,
-                            DigitoCep = 1,
-                            Fator = 0.8m,
-                            Nome = "Interior de SP"
-                        },
-                        new
-                        {
-                            Id = 3,
-                            Ativo = true,
-                            CriadoEm = new DateTime(2026, 6, 24, 0, 0, 0, 0, DateTimeKind.Unspecified),
-                            CriadoPor = "seed",
-                            DiasExtras = 2,
-                            DigitoCep = 2,
-                            Fator = 1.2m,
-                            Nome = "RJ / ES"
-                        },
-                        new
-                        {
-                            Id = 4,
-                            Ativo = true,
-                            CriadoEm = new DateTime(2026, 6, 24, 0, 0, 0, 0, DateTimeKind.Unspecified),
-                            CriadoPor = "seed",
-                            DiasExtras = 2,
-                            DigitoCep = 3,
-                            Fator = 1.3m,
-                            Nome = "Minas Gerais"
-                        },
-                        new
-                        {
-                            Id = 5,
-                            Ativo = true,
-                            CriadoEm = new DateTime(2026, 6, 24, 0, 0, 0, 0, DateTimeKind.Unspecified),
-                            CriadoPor = "seed",
-                            DiasExtras = 4,
-                            DigitoCep = 4,
-                            Fator = 1.6m,
-                            Nome = "BA / SE"
-                        },
-                        new
-                        {
-                            Id = 6,
-                            Ativo = true,
-                            CriadoEm = new DateTime(2026, 6, 24, 0, 0, 0, 0, DateTimeKind.Unspecified),
-                            CriadoPor = "seed",
-                            DiasExtras = 5,
-                            DigitoCep = 5,
-                            Fator = 1.8m,
-                            Nome = "PE / AL / PB / RN"
-                        },
-                        new
-                        {
-                            Id = 7,
-                            Ativo = true,
-                            CriadoEm = new DateTime(2026, 6, 24, 0, 0, 0, 0, DateTimeKind.Unspecified),
-                            CriadoPor = "seed",
-                            DiasExtras = 6,
-                            DigitoCep = 6,
-                            Fator = 1.9m,
-                            Nome = "CE / PI / MA / Norte"
-                        },
-                        new
-                        {
-                            Id = 8,
-                            Ativo = true,
-                            CriadoEm = new DateTime(2026, 6, 24, 0, 0, 0, 0, DateTimeKind.Unspecified),
-                            CriadoPor = "seed",
-                            DiasExtras = 4,
-                            DigitoCep = 7,
-                            Fator = 1.5m,
-                            Nome = "DF / GO / TO / MT / MS"
-                        },
-                        new
-                        {
-                            Id = 9,
-                            Ativo = true,
-                            CriadoEm = new DateTime(2026, 6, 24, 0, 0, 0, 0, DateTimeKind.Unspecified),
-                            CriadoPor = "seed",
-                            DiasExtras = 3,
-                            DigitoCep = 8,
-                            Fator = 1.3m,
-                            Nome = "PR / SC"
-                        },
-                        new
-                        {
-                            Id = 10,
-                            Ativo = true,
-                            CriadoEm = new DateTime(2026, 6, 24, 0, 0, 0, 0, DateTimeKind.Unspecified),
-                            CriadoPor = "seed",
-                            DiasExtras = 3,
-                            DigitoCep = 9,
-                            Fator = 1.4m,
-                            Nome = "Rio Grande do Sul"
-                        });
                 });
 
             modelBuilder.Entity("GameHub.Domain.Entities.Troca", b =>

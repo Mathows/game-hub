@@ -16,6 +16,19 @@ public class Pedido : IAuditavel
     public StatusPedido Status { get; set; } = StatusPedido.Pendente;
     public decimal ValorTotal { get; set; }
 
+    /// <summary>Frete calculado NO SERVIDOR a partir do endereço de entrega (já somado no total).</summary>
+    public decimal ValorFrete { get; set; }
+
+    /// <summary>
+    /// Prazo de entrega PROMETIDO no momento da compra (em dias úteis) — outro SNAPSHOT:
+    /// se o admin mudar a tabela de frete amanhã, o prazo deste pedido não muda.
+    /// É a base do rastreio (§5.1: copiar preserva o histórico).
+    /// </summary>
+    public int PrazoEntregaDias { get; set; }
+
+    /// <summary>Quando o pagamento foi confirmado (base do rastreio simulado da Fase 10).</summary>
+    public DateTime? DataPagamento { get; set; }
+
     // Endereço de ENTREGA: um snapshot (owned type) copiado no checkout.
     // 1 pedido = 1 endereço, garantido pelo schema (ver Sistema.md §5.1).
     // Nulo enquanto o pedido não tem entrega definida (ex.: pedidos antigos).

@@ -1,0 +1,133 @@
+@page "/admin/etiqueta/{PedidoId:int}"
+@rendermode InteractiveServer
+@using Microsoft.EntityFrameworkCore
+@using GameHub.Domain.Entities
+@using GameHub.Domain.Services
+@using GameHub.Infrastructure.Data
+@using Microsoft.AspNetCore.Identity
+@using GameHub.Web.Data
+@inject GameHubDbContext Db
+@inject UserManager<ApplicationUser> UserManager
+@inject CalculadoraRastreio Calculadora
+
+<PageTitle>Etiqueta — Pedido #@PedidoId</PageTitle>
+
+@if (pedido is null)
+{
+    <div class="pg-empty">@erro <a href="admin/expedicao">Voltar à expedição</a></div>
+}
+else
+{
+    @* .pg-nao-imprime some no papel (regra @@media print no app.css). *@
+    <div class="pg-nao-imprime" style="display:flex; gap:.5rem; margin-bottom:1rem;">
+        <a class="pg-btn pg-btn-outline" href="admin/expedicao">← Expedição</a>
+        <button class="pg-btn pg-btn-gold" onclick="window.print()">Imprimir etiqueta</button>
+    </div>
+
+    @* A ETIQUETA. Fundo branco e texto preto de propósito: economia de tinta e leitura
+       do carteiro — o tema escuro do site não serve para papel. *@
+    <div class="pg-etiqueta">
+        <div class="pg-etiqueta-topo">
+            <div>
+                <div class="pg-etiqueta-logo">GAMEHUB</div>
+                <div class="pg-etiqueta-mini">Encomenda · @pedido.Itens.Sum(i => i.Quantidade) item(ns)</div>
+            </div>
+            <div style="text-align:right;">
+                <div class="pg-etiqueta-mini">PEDIDO</div>
+                <div style="font-size:1.3rem; font-weight:700;">#@pedido.Id</div>
+            </div>
+        </div>
+
+        @* "Código de barras": barras geradas por CSS a partir do código (representação
+           VISUAL — não é Code128 escaneável; um leitor real exigiria a codificação oficial). *@
+        <div class="pg-barras">
+            @foreach (var (barra, espaco) in Barras(codigo))
+            {
+                @* flex proporcional: as barras preenchem SEMPRE a largura da etiqueta,
+                   independente do tamanho do código (nada de px fixo que sobra/falta). *@
+                <span class="pg-barra" style="flex:@barra;"></span>
+                <span class="pg-espaco" style="flex:@espaco;"></span>
+            }
+        </div>
+        <div class="pg-etiqueta-codigo">@codigo</div>
+
+        <div class="pg-etiqueta-bloco">
+            <div class="pg-etiqueta-mini">DESTINATÁRIO</div>
+            <div style="font-size:1.05rem; font-weight:700;">@nomeDestinatario</div>
+            <div>@endereco!.Logradouro, @endereco.Numero @(string.IsNullOrEmpty(endereco.Complemento) ? "" : $"- {endereco.Complemento}")</div>
+            <div>@endereco.Bairro</div>
+            <div>@endereco.Cidade / @endereco.Uf</div>
+            <div class="pg-etiqueta-cep">CEP @CepFormatado</div>
+        </div>
+
+        <div class="pg-etiqueta-bloco" style="border-bottom:none;">
+            <div class="pg-etiqueta-mini">REMETENTE</div>
+            <div style="font-weight:600;">GameHub Comércio de Jogos</div>
+            <div>Rua Profa. Ana Isabel Barbosa, 207 — Jd. Diamante</div>
+            <div>São José dos Campos / SP — CEP 12223-180</div>
+        </div>
+
+        <div class="pg-etiqueta-rodape">
+            Postado em @DateTime.Now.ToString("dd/MM/yyyy") · prazo de @pedido.PrazoEntregaDias dia(s) útil(eis)
+            · frete R$ @pedido.ValorFrete.ToString("N2")
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public int PedidoId { get; set; }
+
+    private Pedido? pedido;
+    private EnderecoEntrega? endereco;
+    private string codigo = "";
+    private string nomeDestinatario = "Destinatário";
+    private string? erro;
+
+    private string CepFormatado =>
+        endereco is null || endereco.Cep.Length != 8 ? endereco?.Cep ?? "" : $"{endereco.Cep[..5]}-{endereco.Cep[5..]}";
+
+    protected override async Task OnInitializedAsync()
+    {
+        pedido = await Db.Pedidos.AsNoTracking()
+            .Include(p => p.Cliente)
+            .Include(p => p.Itens)
+            .FirstOrDefaultAsync(p => p.Id == PedidoId);
+
+        if (pedido is null) { erro = "Pedido não encontrado."; return; }
+        if (pedido.EnderecoEntrega is null)
+        {
+            erro = "Este pedido não tem endereço de entrega (compra sem entrega?).";
+            pedido = null;
+            return;
+        }
+
+        endereco = pedido.EnderecoEntrega;
+        codigo = Calculadora.Calcular(pedido, DateTime.Now).Codigo;   // mesmo código do rastreio
+
+        // NOME da pessoa para a etiqueta: o Cliente.Nome guarda o e-mail (dívida técnica
+        // herdada), então buscamos Nome+Sobrenome no usuário do Identity (capturados do
+        // Google na Fase 6). Fallback: o que houver no Cliente.
+        nomeDestinatario = pedido.Cliente?.Nome ?? "Destinatário";
+        if (pedido.Cliente?.ApplicationUserId is string userId)
+        {
+            var usuario = await UserManager.FindByIdAsync(userId);
+            var completo = $"{usuario?.Nome} {usuario?.Sobrenome}".Trim();
+            if (!string.IsNullOrWhiteSpace(completo)) nomeDestinatario = completo;
+        }
+    }
+
+    /// <summary>
+    /// Larguras das barras derivadas dos caracteres do código (determinístico: o mesmo
+    /// código gera sempre o mesmo desenho). É representação visual, não Code128 real.
+    /// </summary>
+    private static IEnumerable<(int Barra, int Espaco)> Barras(string texto)
+    {
+        foreach (var c in texto)
+        {
+            // 3 pares por caractere, com larguras derivadas do próprio char (determinístico).
+            yield return (1 + c % 3, 1);
+            yield return (1 + (c / 3) % 3, 1 + c % 2);
+            yield return (1 + (c / 7) % 2, 1);
+        }
+    }
+}
