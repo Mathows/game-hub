@@ -44,8 +44,13 @@
                 <ValidationMessage For="() => Input.ConfirmPassword" class="text-danger" />
             </div>
             @* reCAPTCHA v3: o JS (recaptcha-register.js) preenche este campo com o token
-               no submit; o servidor valida o token no RegisterUser. Invisível pro usuário. *@
-            <input type="hidden" name="Input.RecaptchaToken" id="recaptcha-token" value="@Input.RecaptchaToken" />
+               no submit; o servidor valida o token no RegisterUser. Invisível pro usuário.
+
+               ATENÇÃO ao value VAZIO: um token do reCAPTCHA vale UMA ÚNICA VEZ. Se o
+               formulário voltar com erro (e-mail em uso, senha fraca...) e este campo
+               reaparecesse preenchido, a 2ª tentativa reenviaria o MESMO token e o Google
+               responderia "timeout-or-duplicate" — o cadastro travaria para sempre. *@
+            <input type="hidden" name="Input.RecaptchaToken" id="recaptcha-token" value="" />
             <button type="submit" class="w-100 btn btn-lg btn-primary">Register</button>
             @* Aviso EXIGIDO pelo Google para poder esconder o selo flutuante do reCAPTCHA. *@
             <p style="font-size:.75rem; opacity:.7; margin-top:.5rem;">

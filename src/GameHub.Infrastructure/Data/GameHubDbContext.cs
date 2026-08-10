@@ -38,6 +38,10 @@ public class GameHubDbContext : DbContext
     public DbSet<Aluguel> Alugueis => Set<Aluguel>();
     public DbSet<Troca> Trocas => Set<Troca>();
 
+    // LGPD (Fase 11): prova de que um pedido de exclusão foi atendido. Não guarda
+    // dado pessoal — guarda a DATA e o QUE foi feito (o ônus da prova é de quem trata).
+    public DbSet<RegistroAnonimizacao> RegistrosAnonimizacao => Set<RegistroAnonimizacao>();
+
     // Aqui refinamos o mapeamento (tamanhos, precisão, relacionamentos e dados iniciais).
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

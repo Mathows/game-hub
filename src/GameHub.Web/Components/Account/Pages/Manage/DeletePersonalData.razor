@@ -1,39 +1,69 @@
-﻿@page "/Account/Manage/DeletePersonalData"
+@page "/Account/Manage/DeletePersonalData"
 
 @using System.ComponentModel.DataAnnotations
 @using Microsoft.AspNetCore.Identity
+@using GameHub.Domain.Interfaces
 @using GameHub.Web.Data
 
 @inject UserManager<ApplicationUser> UserManager
 @inject SignInManager<ApplicationUser> SignInManager
 @inject IdentityRedirectManager RedirectManager
+@inject IDadosPessoaisService DadosPessoais
 @inject ILogger<DeletePersonalData> Logger
 
-<PageTitle>Delete Personal Data</PageTitle>
+<PageTitle>Encerrar minha conta — GameHub</PageTitle>
 
 <StatusMessage Message="@message" />
 
-<h3>Delete Personal Data</h3>
+<h3>Encerrar minha conta</h3>
 
-<div class="alert alert-warning" role="alert">
-    <p>
-        <strong>Deleting this data will permanently remove your account, and this cannot be recovered.</strong>
+<div class="pg-card" style="padding:1.25rem; max-width:680px; border-color:#7a3b3b;">
+    <p style="color:#ff8a8a; font-weight:600; margin-top:0;">
+        Esta ação é definitiva — não há como recuperar a conta depois.
     </p>
-</div>
 
-<div>
+    <p class="pg-muted"><strong>O que será APAGADO:</strong></p>
+    <ul class="pg-muted">
+        <li>sua conta de login (e-mail, senha, vínculo com o Google)</li>
+        <li>seu nome, telefone e CPF/CNPJ do cadastro</li>
+        <li>toda a sua agenda de endereços</li>
+        <li>observações que você escreveu em propostas de venda</li>
+    </ul>
+
+    <p class="pg-muted"><strong>O que será MANTIDO — e por quê:</strong></p>
+    <ul class="pg-muted">
+        <li>
+            <strong>Pedidos e notas fiscais</strong> continuam no sistema, mas
+            <strong>sem identificar você</strong>. A lei fiscal obriga a loja a guardar esses
+            documentos por 5 anos, e a própria LGPD permite conservar dados para cumprir
+            obrigação legal (art. 16, I).
+        </li>
+        <li>
+            Nos pedidos <strong>sem nota fiscal emitida</strong>, até o endereço de entrega é
+            apagado — ali não existe obrigação de guarda.
+        </li>
+    </ul>
+
     <EditForm Model="Input" FormName="delete-user" OnValidSubmit="OnValidSubmitAsync" method="post">
         <DataAnnotationsValidator />
         <ValidationSummary class="text-danger" role="alert" />
         @if (requirePassword)
         {
-            <div class="form-floating mb-3">
-                <InputText type="password" @bind-Value="Input.Password" id="Input.Password" class="form-control" autocomplete="current-password" aria-required="true" placeholder="Please enter your password." />
-                <label for="Input.Password" class="form-label">Password</label>
-                <ValidationMessage For="() => Input.Password" class="text-danger" />
-            </div>
+            <label class="pg-muted">Confirme sua senha</label>
+            <InputText type="password" @bind-Value="Input.Password" class="pg-input"
+                       autocomplete="current-password" aria-required="true" placeholder="sua senha" />
+            <ValidationMessage For="() => Input.Password" class="text-danger" />
         }
-        <button class="w-100 btn btn-lg btn-danger" type="submit">Delete data and close my account</button>
+        else
+        {
+            <p class="pg-muted" style="font-size:.85rem;">
+                Você entra pelo Google, então não há senha para confirmar aqui.
+            </p>
+        }
+        <button class="pg-btn pg-btn-ghost" style="margin-top:1rem; border-color:#7a3b3b; color:#ff8a8a;"
+                type="submit">
+            Apagar meus dados e encerrar a conta
+        </button>
     </EditForm>
 </div>
 
@@ -71,22 +101,30 @@
 
         if (requirePassword && !await UserManager.CheckPasswordAsync(user, Input.Password))
         {
-            message = "Error: Incorrect password.";
+            message = "Error: senha incorreta.";
             return;
         }
 
+        var userId = await UserManager.GetUserIdAsync(user);
+
+        // ---- ORDEM IMPORTA ----
+        // 1º ANONIMIZA a loja (usa o ApplicationUserId para achar o Cliente).
+        //    Se apagássemos o login primeiro, perderíamos a única ponte até o cadastro:
+        //    o Cliente ficaria órfão com nome, CPF e endereços intactos — exatamente o
+        //    bug que o template padrão do Identity tem.
+        var resultado = await DadosPessoais.AnonimizarAsync(userId);
+        Logger.LogInformation(
+            "Titular {UserId} pediu exclusão. {Acoes}", userId, string.Join(" | ", resultado.Acoes));
+
+        // 2º só então encerra a conta de login.
         var result = await UserManager.DeleteAsync(user);
         if (!result.Succeeded)
         {
-            throw new InvalidOperationException("Unexpected error occurred deleting user.");
+            throw new InvalidOperationException("Erro inesperado ao encerrar a conta.");
         }
 
         await SignInManager.SignOutAsync();
-
-        var userId = await UserManager.GetUserIdAsync(user);
-        Logger.LogInformation("User with ID '{UserId}' deleted themselves.", userId);
-
-        RedirectManager.RedirectToCurrentPage();
+        RedirectManager.RedirectTo("Account/ContaEncerrada");
     }
 
     private sealed class InputModel

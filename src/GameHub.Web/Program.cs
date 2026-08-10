@@ -100,6 +100,10 @@ builder.Services.AddScoped<IFreteService, FreteTabelaService>();
 // Vender pra loja: workflow de aprovação (Scoped, usa o DbContext).
 builder.Services.AddScoped<IPropostaVendaService, PropostaVendaService>();
 
+// LGPD (Fase 11): exportar/anonimizar os dados do titular que vivem na LOJA. O Identity
+// só conhece o AspNetUsers — este serviço cobre Cliente, endereços, pedidos e notas.
+builder.Services.AddScoped<IDadosPessoaisService, DadosPessoaisService>();
+
 // Dashboard do admin: consultas agregadas (Scoped, usa o DbContext).
 builder.Services.AddScoped<IDashboardService, DashboardService>();
 

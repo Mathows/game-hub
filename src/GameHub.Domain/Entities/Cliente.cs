@@ -24,6 +24,23 @@ public class Cliente : IAuditavel
 
     public DateTime DataCadastro { get; set; } = DateTime.Now;
 
+    // ---- LGPD (Fase 11) ----
+    /// <summary>
+    /// Marca que este cadastro foi ANONIMIZADO a pedido do titular.
+    ///
+    /// Cuidado com a leitura: esta flag NÃO é o que protege o dado — quem protege é a
+    /// anonimização em si (nome, CPF e telefone sobrescritos). A flag existe para o
+    /// SISTEMA saber que "Titular removido #7" é uma exclusão legítima, e não um cadastro
+    /// corrompido: assim ele não aparece em listagens de clientes, não recebe e-mail de
+    /// marketing e não entra em relatório de base ativa.
+    ///
+    /// Ou seja: inativar (flag) e anonimizar (esvaziar o dado) resolvem problemas
+    /// diferentes — e aqui os dois andam juntos.
+    /// </summary>
+    public bool Anonimizado { get; set; }
+
+    public DateTime? AnonimizadoEm { get; set; }
+
     // ---- Agenda de endereços: Cliente (1) → Endereco (N). A FK mora na Endereco. ----
     // (Substitui o antigo "string? Endereco" ingênuo — ver Sistema.md §5.1.)
     public ICollection<Endereco> Enderecos { get; set; } = new List<Endereco>();

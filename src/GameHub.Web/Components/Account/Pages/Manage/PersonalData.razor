@@ -1,4 +1,4 @@
-﻿@page "/Account/Manage/PersonalData"
+@page "/Account/Manage/PersonalData"
 
 @using Microsoft.AspNetCore.Identity
 @using GameHub.Web.Data
@@ -6,25 +6,38 @@
 @inject UserManager<ApplicationUser> UserManager
 @inject IdentityRedirectManager RedirectManager
 
-<PageTitle>Personal Data</PageTitle>
+<PageTitle>Meus dados pessoais — GameHub</PageTitle>
 
 <StatusMessage />
-<h3>Personal Data</h3>
+<h3>Meus dados pessoais</h3>
 
-<div class="row">
-    <div class="col-md-6">
-        <p>Your account contains personal data that you have given us. This page allows you to download or delete that data.</p>
-        <p>
-            <strong>Deleting this data will permanently remove your account, and this cannot be recovered.</strong>
-        </p>
-        <form action="Account/Manage/DownloadPersonalData" method="post">
-            <AntiforgeryToken />
-            <button class="btn btn-primary" type="submit">Download</button>
-        </form>
-        <p>
-            <a href="Account/Manage/DeletePersonalData" class="btn btn-danger">Delete</a>
-        </p>
-    </div>
+<p class="pg-muted">
+    A LGPD lhe dá dois direitos sobre os dados que guardamos de você: <strong>saber quais são</strong>
+    (direito de acesso) e <strong>pedir a exclusão</strong>. Os dois estão nesta página.
+</p>
+
+<div class="pg-card" style="padding:1.25rem; margin-bottom:1rem; max-width:640px;">
+    <h4 class="gold" style="margin-top:0;">Baixar meus dados</h4>
+    <p class="pg-muted" style="margin-bottom:.75rem;">
+        Gera um arquivo <code>.json</code> com <strong>tudo</strong> o que a loja mantém sobre você:
+        conta de login, cadastro (incluindo CPF/CNPJ e telefone), agenda de endereços,
+        pedidos com itens e valores, notas fiscais emitidas no seu nome, aluguéis,
+        trocas e propostas de venda.
+    </p>
+    <form action="Account/Manage/DownloadPersonalData" method="post">
+        <AntiforgeryToken />
+        <button class="pg-btn pg-btn-gold" type="submit">Baixar meus dados</button>
+    </form>
+</div>
+
+<div class="pg-card" style="padding:1.25rem; max-width:640px; border-color:#7a3b3b;">
+    <h4 style="margin-top:0; color:#ff8a8a;">Encerrar minha conta</h4>
+    <p class="pg-muted" style="margin-bottom:.75rem;">
+        Seus dados pessoais são apagados e a conta é encerrada — <strong>sem volta</strong>.
+        Pedidos e notas fiscais já emitidos permanecem no sistema <strong>sem identificar você</strong>,
+        porque a legislação fiscal obriga a loja a guardar esses documentos por 5 anos.
+    </p>
+    <a href="Account/Manage/DeletePersonalData" class="pg-btn pg-btn-ghost">Encerrar minha conta</a>
 </div>
 
 @code {
@@ -33,7 +46,7 @@
 
     protected override async Task OnInitializedAsync()
     {
-        var user  = await UserManager.GetUserAsync(HttpContext.User);
+        var user = await UserManager.GetUserAsync(HttpContext.User);
         if (user is null)
         {
             RedirectManager.RedirectToInvalidUser(UserManager, HttpContext);
