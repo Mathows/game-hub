@@ -20,6 +20,12 @@ public class Jogo : IAuditavel
     public bool Disponivel { get; set; } = true;
 
     public string? UrlFoto { get; set; }
+
+    /// <summary>
+    /// Faixa etária do jogo (Ministério da Justiça). Atributo do RECURSO — é com ele que a
+    /// policy de classificação indicativa decide quem pode comprar (ver Fase 11 · P4).
+    /// </summary>
+    public ClassificacaoIndicativa Classificacao { get; set; } = ClassificacaoIndicativa.Livre;
     public DateTime DataCadastro { get; set; } = DateTime.Now;
 
     // --- Relacionamentos ---

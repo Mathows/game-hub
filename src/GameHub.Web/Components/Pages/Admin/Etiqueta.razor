@@ -9,6 +9,9 @@
 @inject GameHubDbContext Db
 @inject UserManager<ApplicationUser> UserManager
 @inject CalculadoraRastreio Calculadora
+@* Mesma atribuição da fila de expedição.
+   Soma-se à policy da pasta (Administrar): as duas precisam passar. *@
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Policy = GameHub.Web.Autorizacao.Policies.PodeDespachar)]
 
 <PageTitle>Etiqueta — Pedido #@PedidoId</PageTitle>
 

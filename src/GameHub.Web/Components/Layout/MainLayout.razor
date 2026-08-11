@@ -79,8 +79,9 @@
             </Authorized>
         </AuthorizeView>
 
-        @* Seção do ADMIN: só quem tem o papel vê (role = claim, Fase 6). *@
-        <AuthorizeView Roles="Admin">
+        @* Seção do ADMIN: quem vê é decidido pela POLICY, não pelo papel escrito aqui
+           (Fase 11 · P4). O menu e as páginas passam a consultar a MESMA regra. *@
+        <AuthorizeView Policy="@GameHub.Web.Autorizacao.Policies.Administrar">
             <div class="pg-drawer-section">Administração</div>
             <NavLink class="pg-drawer-link" href="admin/dashboard">Dashboard</NavLink>
             <NavLink class="pg-drawer-link" href="admin/jogos">Jogos</NavLink>

@@ -13,6 +13,8 @@ using GameHub.Domain.Interfaces;
 using GameHub.Domain.Services;
 using GameHub.Web.Services;
 using GameHub.Web.Hubs;
+using GameHub.Web.Autorizacao;
+using Microsoft.AspNetCore.Authorization;
 using NHibernate;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -122,6 +124,11 @@ builder.Services.AddScoped<IDadosPessoaisService, DadosPessoaisService>();
 // LGPD (Fase 11): consentimento VERSIONADO — guarda qual versão do termo cada pessoa
 // aceitou, com data, IP e navegador (o ônus de provar o consentimento é do controlador).
 builder.Services.AddScoped<IConsentimentoService, ConsentimentoService>();
+
+// AUTORIZAÇÃO (Fase 11 · P4): políticas nomeadas + o handler da classificação indicativa.
+// O handler é Scoped porque recebe um ILogger; ele não guarda estado entre chamadas.
+builder.Services.AddAuthorization(options => options.AddPoliticasGameHub());
+builder.Services.AddScoped<IAuthorizationHandler, ClassificacaoIndicativaHandler>();
 
 // Dashboard do admin: consultas agregadas (Scoped, usa o DbContext).
 builder.Services.AddScoped<IDashboardService, DashboardService>();
@@ -316,6 +323,9 @@ app.MapContabilidadeEndpoints();
 
 // Aceite dos termos (LGPD · Fase 11): POST de formulário, para o IP entrar na prova.
 app.MapConsentimentoEndpoints();
+
+// Data de nascimento (Fase 11 · P4): POST, porque precisa RENOVAR O COOKIE (claim novo).
+app.MapPerfilEndpoints();
 
 // Hub do chat de trocas (SignalR).
 app.MapHub<TrocaChatHub>("/hubs/troca-chat");

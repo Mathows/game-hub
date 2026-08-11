@@ -3,6 +3,9 @@
 @using GameHub.Domain.Entities
 @using GameHub.Domain.Enums
 @inject IContabilidadeService ContabilidadeService
+@* Documento fiscal e contabilidade: atribuição separada da operação da loja.
+   Soma-se à policy da pasta (Administrar): as duas precisam passar. *@
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Policy = GameHub.Web.Autorizacao.Policies.PodeEmitirFiscal)]
 
 <PageTitle>Contabilidade — Admin GameHub</PageTitle>
 

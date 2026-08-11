@@ -9,4 +9,13 @@ public class ApplicationUser : IdentityUser
 {
     [PersonalData] public string? Nome { get; set; }
     [PersonalData] public string? Sobrenome { get; set; }
+
+    /// <summary>
+    /// Data de nascimento — atributo da PESSOA, usado pela policy de classificação
+    /// indicativa (Fase 11 · P4). Guardamos a DATA, nunca a idade: idade calculada e
+    /// gravada fica errada no dia seguinte ao aniversário.
+    ///
+    /// [PersonalData] entra na exportação/exclusão do titular (LGPD).
+    /// </summary>
+    [PersonalData] public DateOnly? DataNascimento { get; set; }
 }
