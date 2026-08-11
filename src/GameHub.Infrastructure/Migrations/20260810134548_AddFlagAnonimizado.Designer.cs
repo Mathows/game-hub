@@ -4,6 +4,7 @@ using GameHub.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace GameHub.Infrastructure.Migrations
 {
     [DbContext(typeof(GameHubDbContext))]
-    partial class GameHubDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260810134548_AddFlagAnonimizado")]
+    partial class AddFlagAnonimizado
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -21,44 +24,6 @@ namespace GameHub.Infrastructure.Migrations
                 .HasAnnotation("Relational:MaxIdentifierLength", 128);
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
-
-            modelBuilder.Entity("GameHub.Domain.Entities.AceiteTermo", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<DateTime>("AceitoEm")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("ApplicationUserId")
-                        .IsRequired()
-                        .HasMaxLength(450)
-                        .HasColumnType("nvarchar(450)");
-
-                    b.Property<string>("IpOrigem")
-                        .HasMaxLength(45)
-                        .HasColumnType("nvarchar(45)");
-
-                    b.Property<int>("TermoDeUsoId")
-                        .HasColumnType("int");
-
-                    b.Property<string>("UserAgent")
-                        .HasMaxLength(400)
-                        .HasColumnType("nvarchar(400)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("TermoDeUsoId");
-
-                    b.HasIndex("ApplicationUserId", "TermoDeUsoId")
-                        .IsUnique()
-                        .HasDatabaseName("UX_AceiteTermo_Usuario_Termo");
-
-                    b.ToTable("AceitesTermo");
-                });
 
             modelBuilder.Entity("GameHub.Domain.Entities.Aluguel", b =>
                 {
@@ -498,9 +463,6 @@ namespace GameHub.Infrastructure.Migrations
                     b.Property<string>("AtualizadoPor")
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<int>("Classificacao")
-                        .HasColumnType("int");
-
                     b.Property<int>("Condicao")
                         .HasColumnType("int");
 
@@ -557,7 +519,6 @@ namespace GameHub.Infrastructure.Migrations
                         new
                         {
                             Id = 1,
-                            Classificacao = 0,
                             Condicao = 2,
                             CriadoEm = new DateTime(2026, 6, 24, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             CriadoPor = "seed",
@@ -573,7 +534,6 @@ namespace GameHub.Infrastructure.Migrations
                         new
                         {
                             Id = 2,
-                            Classificacao = 0,
                             Condicao = 2,
                             CriadoEm = new DateTime(2026, 6, 24, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             CriadoPor = "seed",
@@ -589,7 +549,6 @@ namespace GameHub.Infrastructure.Migrations
                         new
                         {
                             Id = 3,
-                            Classificacao = 0,
                             Condicao = 1,
                             CriadoEm = new DateTime(2026, 6, 24, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             CriadoPor = "seed",
@@ -1241,52 +1200,6 @@ namespace GameHub.Infrastructure.Migrations
                     b.ToTable("RegistrosAnonimizacao");
                 });
 
-            modelBuilder.Entity("GameHub.Domain.Entities.TermoDeUso", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<string>("Conteudo")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<DateTime>("PublicadoEm")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("ResumoDasMudancas")
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
-
-                    b.Property<string>("Titulo")
-                        .IsRequired()
-                        .HasMaxLength(150)
-                        .HasColumnType("nvarchar(150)");
-
-                    b.Property<string>("Versao")
-                        .IsRequired()
-                        .HasMaxLength(10)
-                        .HasColumnType("nvarchar(10)");
-
-                    b.Property<bool>("Vigente")
-                        .HasColumnType("bit");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("Versao")
-                        .IsUnique()
-                        .HasDatabaseName("UX_TermoDeUso_Versao");
-
-                    b.HasIndex("Vigente")
-                        .IsUnique()
-                        .HasDatabaseName("UX_TermoDeUso_Vigente")
-                        .HasFilter("[Vigente] = 1");
-
-                    b.ToTable("TermosDeUso");
-                });
-
             modelBuilder.Entity("GameHub.Domain.Entities.Troca", b =>
                 {
                     b.Property<int>("Id")
@@ -1324,17 +1237,6 @@ namespace GameHub.Infrastructure.Migrations
                     b.HasIndex("JogoOferecidoId");
 
                     b.ToTable("Trocas");
-                });
-
-            modelBuilder.Entity("GameHub.Domain.Entities.AceiteTermo", b =>
-                {
-                    b.HasOne("GameHub.Domain.Entities.TermoDeUso", "Termo")
-                        .WithMany("Aceites")
-                        .HasForeignKey("TermoDeUsoId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("Termo");
                 });
 
             modelBuilder.Entity("GameHub.Domain.Entities.Aluguel", b =>
@@ -1637,11 +1539,6 @@ namespace GameHub.Infrastructure.Migrations
             modelBuilder.Entity("GameHub.Domain.Entities.Plataforma", b =>
                 {
                     b.Navigation("Jogos");
-                });
-
-            modelBuilder.Entity("GameHub.Domain.Entities.TermoDeUso", b =>
-                {
-                    b.Navigation("Aceites");
                 });
 #pragma warning restore 612, 618
         }

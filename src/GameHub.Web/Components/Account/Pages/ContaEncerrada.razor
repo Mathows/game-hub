@@ -1,0 +1,30 @@
+@page "/Account/ContaEncerrada"
+@using Microsoft.AspNetCore.Authorization
+@attribute [AllowAnonymous]
+
+@* Esta página é ANÔNIMA de propósito: quem chega aqui acabou de ser deslogado. Se ela
+   exigisse autenticação, o titular seria jogado para a tela de login e nunca veria a
+   confirmação de que o pedido dele foi atendido. *@
+
+<PageTitle>Conta encerrada — GameHub</PageTitle>
+
+<div style="max-width:620px; margin:3rem auto; text-align:center;">
+    <h1>Conta <span class="gold">encerrada</span></h1>
+
+    <p class="pg-muted" style="margin-top:1.5rem;">
+        Seus dados pessoais foram apagados do GameHub: cadastro, telefone, CPF/CNPJ,
+        endereços e a conta de login.
+    </p>
+
+    <p class="pg-muted">
+        Pedidos e notas fiscais já emitidos permanecem registrados <strong>sem identificar
+        você</strong>, porque a loja é obrigada por lei a guardar documentos fiscais por
+        5 anos. Eles não podem mais ser ligados à sua pessoa.
+    </p>
+
+    <p class="pg-muted" style="font-size:.85rem;">
+        Registramos a data e o que foi feito — é a prova de que seu pedido foi atendido.
+    </p>
+
+    <a class="pg-btn pg-btn-gold" href="/" style="margin-top:1rem;">Voltar à loja</a>
+</div>

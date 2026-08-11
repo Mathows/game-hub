@@ -1,7 +1,11 @@
 @page "/jogo/{Id:int}"
 @rendermode InteractiveServer
+@using GameHub.Domain.Enums
+@using GameHub.Web.Autorizacao
+@using Microsoft.AspNetCore.Authorization
 @inject IJogoRepository JogoRepo
 @inject CarrinhoService Carrinho
+@inject IAuthorizationService Autorizacao
 
 @* @rendermode InteractiveServer: esta página deixa de ser HTML estático e passa a rodar num
    CIRCUITO (conexão SignalR). É isso que permite os botões reagirem ao clique em C#.
@@ -33,6 +37,10 @@ else
             <h1>@jogo.Titulo</h1>
             <p class="pg-muted">
                 @jogo.Plataforma?.Nome • @jogo.Genero?.Nome • @jogo.Condicao
+                <span class="pg-classificacao pg-cl-@((int)jogo.Classificacao)"
+                      title="Classificação indicativa: @RotuloClassificacao(jogo.Classificacao)">
+                    @(jogo.Classificacao == ClassificacaoIndicativa.Livre ? "L" : ((int)jogo.Classificacao).ToString())
+                </span>
             </p>
 
             <p>@(string.IsNullOrWhiteSpace(jogo.Descricao) ? "Sem descrição cadastrada." : jogo.Descricao)</p>
@@ -54,7 +62,19 @@ else
                 Aluguel: R$ @jogo.PrecoAluguelDia.ToString("N2") / dia • Em estoque: @jogo.QuantidadeEstoque
             </p>
 
-            @if (jogo.QuantidadeEstoque > 0)
+            @if (!podeComprar)
+            {
+                @* BLOQUEIO POR CLASSIFICAÇÃO INDICATIVA (Fase 11 · P4).
+                   Some com os botões de compra — a decisão veio da policy, não de um if
+                   com a regra escrita aqui dentro. *@
+                <div class="pg-bloqueio-idade">
+                    <strong>Jogo classificado para @((int)jogo.Classificacao) anos ou mais.</strong>
+                    <p class="pg-muted" style="margin:.5rem 0 0;">
+                        @motivoBloqueio
+                    </p>
+                </div>
+            }
+            else if (jogo.QuantidadeEstoque > 0)
             {
                 <div class="pg-buy-box">
                     @* COMPRAR *@
@@ -89,14 +109,53 @@ else
 @code {
     [Parameter] public int Id { get; set; }
 
+    [CascadingParameter] private Task<AuthenticationState>? AuthState { get; set; }
+
     private Jogo? jogo;
     private int diasAluguel = 3;      // valor inicial do campo de dias
     private string? mensagem;
+    private bool podeComprar = true;
+    private string motivoBloqueio = "";
 
     protected override async Task OnParametersSetAsync()
     {
         jogo = await JogoRepo.ObterPorIdAsync(Id);
+        if (jogo is null) return;
+
+        await VerificarClassificacaoAsync();
     }
+
+    /// <summary>
+    /// Pergunta à POLICY se este usuário pode comprar este jogo. Repare que a página não
+    /// sabe a regra: não há comparação de idade aqui. Ela só pergunta e obedece — se
+    /// amanhã a regra mudar (ex.: aceitar autorização de responsável), esta tela não muda.
+    /// </summary>
+    private async Task VerificarClassificacaoAsync()
+    {
+        var user = AuthState is null
+            ? new System.Security.Claims.ClaimsPrincipal()
+            : (await AuthState).User;
+
+        // AuthorizeAsync com RECURSO: passamos o jogo. É o que permite a mesma policy
+        // aprovar um jogo Livre e recusar um 18+ para a mesma pessoa.
+        var resultado = await Autorizacao.AuthorizeAsync(user, jogo, Policies.RespeitaClassificacao);
+        podeComprar = resultado.Succeeded;
+
+        if (podeComprar) return;
+
+        // A MENSAGEM depende do motivo — e isso é uma decisão de UX, não de segurança:
+        // quem não informou a data precisa saber que pode resolver; quem é menor de idade
+        // precisa entender que não há o que resolver.
+        var temData = user.FindFirst(ClassificacaoIndicativaHandler.ClaimDataNascimento) is not null;
+        motivoBloqueio = user.Identity?.IsAuthenticated != true
+            ? "Entre na sua conta para confirmarmos sua idade."
+            : temData
+                ? "Sua data de nascimento indica que você não atingiu a idade mínima para este título."
+                : "Informe sua data de nascimento em \"Minha conta → Dados fiscais\" para liberar títulos com restrição de idade.";
+    }
+
+    private static string RotuloClassificacao(ClassificacaoIndicativa c) =>
+        c == ClassificacaoIndicativa.Livre ? "Livre para todos os públicos" : $"Não recomendado para menores de {(int)c} anos";
 
     private void Comprar()
     {

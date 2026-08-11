@@ -79,8 +79,9 @@
             </Authorized>
         </AuthorizeView>
 
-        @* Seção do ADMIN: só quem tem o papel vê (role = claim, Fase 6). *@
-        <AuthorizeView Roles="Admin">
+        @* Seção do ADMIN: quem vê é decidido pela POLICY, não pelo papel escrito aqui
+           (Fase 11 · P4). O menu e as páginas passam a consultar a MESMA regra. *@
+        <AuthorizeView Policy="@GameHub.Web.Autorizacao.Policies.Administrar">
             <div class="pg-drawer-section">Administração</div>
             <NavLink class="pg-drawer-link" href="admin/dashboard">Dashboard</NavLink>
             <NavLink class="pg-drawer-link" href="admin/jogos">Jogos</NavLink>
@@ -94,6 +95,9 @@
         </AuthorizeView>
     </aside>
 
+    @* Faixa de re-aceite do termo: aparece só para quem ainda não aceitou a versão vigente. *@
+    <AvisoNovoTermo />
+
     <main class="pg-main">
         @Body
     </main>
@@ -101,6 +105,7 @@
     <footer class="pg-footer">
         <div class="pg-footer-inner">
             © 2026 GameHub — Seu hub completo para jogos: compre, venda, alugue e troque.
+            <span style="margin-left:.75rem;"><a href="termos">Termos de Uso e Privacidade</a></span>
         </div>
     </footer>
 

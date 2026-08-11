@@ -15,6 +15,8 @@
 @inject NavigationManager NavigationManager
 @inject IdentityRedirectManager RedirectManager
 @inject GameHub.Web.Services.IRecaptchaService Recaptcha
+@inject GameHub.Domain.Interfaces.IConsentimentoService Consentimento
+@inject IHttpContextAccessor HttpContextAccessor
 
 <PageTitle>Register</PageTitle>
 
@@ -44,8 +46,30 @@
                 <ValidationMessage For="() => Input.ConfirmPassword" class="text-danger" />
             </div>
             @* reCAPTCHA v3: o JS (recaptcha-register.js) preenche este campo com o token
-               no submit; o servidor valida o token no RegisterUser. Invisível pro usuário. *@
-            <input type="hidden" name="Input.RecaptchaToken" id="recaptcha-token" value="@Input.RecaptchaToken" />
+               no submit; o servidor valida o token no RegisterUser. Invisível pro usuário.
+
+               ATENÇÃO ao value VAZIO: um token do reCAPTCHA vale UMA ÚNICA VEZ. Se o
+               formulário voltar com erro (e-mail em uso, senha fraca...) e este campo
+               reaparecesse preenchido, a 2ª tentativa reenviaria o MESMO token e o Google
+               responderia "timeout-or-duplicate" — o cadastro travaria para sempre. *@
+            <input type="hidden" name="Input.RecaptchaToken" id="recaptcha-token" value="" />
+
+            @* CONSENTIMENTO (Fase 11 · LGPD): o aceite é obrigatório e a versão fica
+               registrada. O link abre em nova aba de propósito — mandar a pessoa embora
+               da página faria ela perder o que digitou. *@
+            <div class="form-check" style="margin:1rem 0; display:flex; gap:.5rem; align-items:flex-start;">
+                <InputCheckbox @bind-Value="Input.AceitouTermos" id="aceite" class="form-check-input" />
+                <label for="aceite" style="font-size:.9rem;">
+                    Li e aceito os
+                    <a href="termos" target="_blank">Termos de Uso e a Política de Privacidade</a>
+                    @if (termoVigente is not null)
+                    {
+                        <text>(versão @termoVigente.Versao)</text>
+                    }
+                </label>
+            </div>
+            <ValidationMessage For="() => Input.AceitouTermos" class="text-danger" />
+
             <button type="submit" class="w-100 btn btn-lg btn-primary">Register</button>
             @* Aviso EXIGIDO pelo Google para poder esconder o selo flutuante do reCAPTCHA. *@
             <p style="font-size:.75rem; opacity:.7; margin-top:.5rem;">
@@ -80,6 +104,11 @@
         Input ??= new();
     }
 
+    private GameHub.Domain.Entities.TermoDeUso? termoVigente;
+
+    protected override async Task OnInitializedAsync() =>
+        termoVigente = await Consentimento.ObterVigenteAsync();
+
     public async Task RegisterUser(EditContext editContext)
     {
         // Anti-robô ANTES de qualquer coisa: valida o token do reCAPTCHA v3 com o Google.
@@ -106,6 +135,19 @@
         Logger.LogInformation("User created a new account with password.");
 
         var userId = await UserManager.GetUserIdAsync(user);
+
+        // A PROVA do consentimento. Só pode ser gravada AQUI: antes do CreateAsync não
+        // existe userId para associar o aceite. Se o cadastro falhar, nenhum aceite fica
+        // registrado — e é o correto: não houve conta, não houve consentimento.
+        if (termoVigente is not null)
+        {
+            var ctx = HttpContextAccessor.HttpContext;
+            await Consentimento.RegistrarAceiteAsync(
+                userId,
+                termoVigente.Id,
+                ctx?.Connection.RemoteIpAddress?.ToString(),
+                ctx?.Request.Headers.UserAgent.ToString());
+        }
         var code = await UserManager.GenerateEmailConfirmationTokenAsync(user);
         code = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(code));
         var callbackUrl = NavigationManager.GetUriWithQueryParameters(
@@ -169,5 +211,14 @@
 
         /// <summary>Token do reCAPTCHA v3 (preenchido pelo JS no submit; sem validação de UI).</summary>
         public string? RecaptchaToken { get; set; }
+
+        /// <summary>
+        /// Aceite dos termos. O [Range(true, true)] é o truque para tornar um checkbox
+        /// OBRIGATÓRIO: [Required] num bool não funciona (false já é um valor válido
+        /// preenchido, então passa na validação).
+        /// </summary>
+        [Range(typeof(bool), "true", "true",
+            ErrorMessage = "É preciso aceitar os Termos de Uso e a Política de Privacidade.")]
+        public bool AceitouTermos { get; set; }
     }
 }

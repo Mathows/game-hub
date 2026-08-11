@@ -1,0 +1,105 @@
+@page "/termos"
+@using GameHub.Domain.Entities
+@using GameHub.Domain.Interfaces
+@inject IConsentimentoService Consentimento
+
+@* Página PÚBLICA (não exige login): a pessoa precisa poder ler o termo ANTES de aceitar.
+   Um termo que só existe depois do cadastro não é consentimento informado. *@
+
+<PageTitle>Termos de Uso e Privacidade — GameHub</PageTitle>
+
+<div style="max-width:760px; margin:0 auto;">
+    @if (termo is null)
+    {
+        <div class="pg-empty">Nenhum termo publicado.</div>
+    }
+    else
+    {
+        <div class="pg-section-head">
+            <h1>@termo.Titulo</h1>
+        </div>
+
+        <p class="pg-muted">
+            Versão <strong class="gold">@termo.Versao</strong> ·
+            publicada em @termo.PublicadoEm.ToString("dd/MM/yyyy")
+            @if (versoes.Count > 1)
+            {
+                <span> · @(versoes.Count) versões no histórico</span>
+            }
+        </p>
+
+        @* O texto vem do BANCO, exatamente como foi publicado. Renderizamos os títulos
+           "## " e os itens "- " sem biblioteca de markdown: menos dependência, e o
+           conteúdo é controlado por nós (não é entrada de usuário). *@
+        <div class="pg-card" style="padding:1.5rem; line-height:1.7;">
+            @foreach (var linha in Linhas(termo.Conteudo))
+            {
+                @if (linha.StartsWith("## "))
+                {
+                    <h2 class="gold" style="font-size:1.1rem; margin:1.5rem 0 .5rem;">@linha[3..]</h2>
+                }
+                else if (linha.StartsWith("- "))
+                {
+                    <div style="padding-left:1rem;">• @((MarkupString)Negrito(linha[2..]))</div>
+                }
+                else
+                {
+                    <p style="margin:.5rem 0;">@((MarkupString)Negrito(linha))</p>
+                }
+            }
+        </div>
+
+        @if (versoes.Count > 1)
+        {
+            <h2 class="gold" style="margin-top:2rem;">Versões anteriores</h2>
+            <p class="pg-muted" style="font-size:.85rem;">
+                Guardamos todas as versões: é o que permite saber exatamente o que cada
+                pessoa aceitou, na data em que aceitou.
+            </p>
+            <table class="pg-table">
+                <thead><tr><th>Versão</th><th>Publicada</th><th>O que mudou</th></tr></thead>
+                <tbody>
+                    @foreach (var v in versoes)
+                    {
+                        <tr>
+                            <td>@v.Versao @(v.Vigente ? "(em vigor)" : "")</td>
+                            <td>@v.PublicadoEm.ToString("dd/MM/yyyy")</td>
+                            <td class="pg-muted">@(v.ResumoDasMudancas ?? "—")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+    }
+</div>
+
+@code {
+    private TermoDeUso? termo;
+    private List<TermoDeUso> versoes = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        termo = await Consentimento.ObterVigenteAsync();
+        versoes = await Consentimento.ObterHistoricoAsync();
+    }
+
+    private static IEnumerable<string> Linhas(string conteudo) =>
+        conteudo.Split('\n')
+            .Select(l => l.Trim())
+            .Where(l => l.Length > 0);
+
+    /// <summary>Converte **texto** em negrito. Escapa o resto antes, para o conteúdo
+    /// nunca poder injetar HTML (o termo é nosso, mas a regra vale sempre).</summary>
+    private static string Negrito(string texto)
+    {
+        var seguro = System.Net.WebUtility.HtmlEncode(texto);
+        var partes = seguro.Split("**");
+        var sb = new System.Text.StringBuilder();
+        for (var i = 0; i < partes.Length; i++)
+        {
+            // Índices ímpares são o que estava ENTRE os asteriscos.
+            sb.Append(i % 2 == 1 ? $"<strong>{partes[i]}</strong>" : partes[i]);
+        }
+        return sb.ToString();
+    }
+}

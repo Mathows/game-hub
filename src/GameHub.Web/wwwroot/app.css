@@ -278,3 +278,45 @@ h1, h2, h3 { color: var(--pg-text); font-family: var(--pg-font-display); letter-
     body { background: #fff !important; }
     .pg-etiqueta { border-color: #000; page-break-inside: avoid; }
 }
+
+/* ---------- Faixa de re-aceite do termo (Fase 11 · LGPD) ---------- */
+.pg-aviso-termo {
+    background: linear-gradient(90deg, rgba(230,178,58,.14), rgba(230,178,58,.06));
+    border-bottom: 1px solid var(--pg-gold);
+    padding: .85rem 1rem;
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 1rem; flex-wrap: wrap;
+    font-size: .9rem;
+}
+.pg-aviso-termo .pg-btn { padding: .4rem 1rem; font-size: .75rem; }
+.pg-aviso-termo form { margin: 0; }
+/* "Depois": checkbox escondido + regra de irmão adjacente esconde a faixa (sem JS). */
+.pg-termo-dispensar { display: none; }
+.pg-termo-dispensar:checked + .pg-aviso-termo { display: none; }
+
+/* ---------- Classificação indicativa (Fase 11 · P4) ---------- */
+/* Cores oficiais do Ministério da Justiça: verde=Livre, azul=10, amarelo=12,
+   laranja=14, vermelho=16, preto=18. Quem conhece o selo reconhece de imediato. */
+.pg-classificacao {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 1.4rem; height: 1.4rem; border-radius: 4px;
+    font-family: var(--pg-font-display); font-weight: 700; font-size: .72rem;
+    color: #fff; vertical-align: middle; margin-left: .35rem;
+}
+.pg-cl-0  { background: #009a44; }   /* Livre */
+.pg-cl-10 { background: #0a6cd8; }
+.pg-cl-12 { background: #e0b100; color: #241c00; }
+.pg-cl-14 { background: #e07b00; }
+.pg-cl-16 { background: #c62020; }
+.pg-cl-18 { background: #111; border: 1px solid #666; }
+
+/* Selo sobre a capa no catálogo */
+.pg-card-cover .pg-classificacao {
+    position: absolute; bottom: .5rem; right: .5rem; margin: 0;
+    box-shadow: 0 1px 4px rgba(0,0,0,.6);
+}
+
+.pg-bloqueio-idade {
+    background: rgba(198,32,32,.12); border: 1px solid #7a3b3b;
+    border-radius: 10px; padding: 1rem; margin-top: 1rem;
+}

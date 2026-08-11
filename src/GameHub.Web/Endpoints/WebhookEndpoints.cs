@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using GameHub.Domain.Interfaces;
+using GameHub.Web.Seguranca;
 using GameHub.Infrastructure.Payments;
 
 namespace GameHub.Web.Endpoints;
@@ -60,7 +61,10 @@ public static class WebhookEndpoints
 
             // 4) Responder 200 sempre que processamos: assim o MP não fica reenviando.
             return Results.Ok();
-        });
+        })
+        // Teto de requisições: este endpoint é ABERTO ao mundo (o provedor precisa alcançá-lo
+        // sem cookie de login), então é a porta mais exposta da aplicação.
+        .RequireRateLimiting(RateLimiting.Webhook);
     }
 
     // Formato do corpo que tratamos (simulação).

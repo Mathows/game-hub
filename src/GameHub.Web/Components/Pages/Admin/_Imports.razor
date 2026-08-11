@@ -1,5 +1,8 @@
 @using Microsoft.AspNetCore.Authorization
+@using GameHub.Web.Autorizacao
 
-@* Aplica a TODAS as páginas desta pasta (Admin): só quem tem o papel "Admin" entra.
-   Um _Imports.razor com @attribute vale para todos os componentes do diretório. *@
-@attribute [Authorize(Roles = "Admin")]
+@* Aplica a TODAS as páginas desta pasta (Admin).
+   Antes era [Authorize(Roles = "Admin")] — a REGRA estava escrita aqui. Agora declaramos a
+   INTENÇÃO ("Administrar") e a regra vive em Autorizacao/Policies.cs. No dia em que existir
+   um papel "Operador", muda-se uma linha lá e nenhuma tela é tocada. *@
+@attribute [Authorize(Policy = Policies.Administrar)]

@@ -13,6 +13,9 @@ using GameHub.Domain.Interfaces;
 using GameHub.Domain.Services;
 using GameHub.Web.Services;
 using GameHub.Web.Hubs;
+using GameHub.Web.Autorizacao;
+using GameHub.Web.Seguranca;
+using Microsoft.AspNetCore.Authorization;
 using NHibernate;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -77,6 +80,21 @@ builder.Services.AddDbContext<GameHubDbContext>((sp, options) =>
     options.UseSqlServer(connectionString)
            .AddInterceptors(sp.GetRequiredService<AuditoriaInterceptor>()));
 
+// FÁBRICA de DbContext — para componentes que rodam no LAYOUT (em toda página).
+//
+// O PROBLEMA que isto resolve: o DbContext Scoped é UM por requisição/circuito, e ele NÃO
+// suporta duas operações ao mesmo tempo. No Blazor, componentes renderizam de forma
+// assíncrona: a página consulta jogos enquanto o layout consulta o termo vigente — mesma
+// instância, duas queries simultâneas → "A second operation was started on this context".
+//
+// Com a fábrica, quem precisa consultar CRIA e DESCARTA seu próprio contexto: cada operação
+// fica isolada. Lifetime Scoped (não o Singleton padrão) porque o interceptor de auditoria
+// que configuramos acima é Scoped — um factory singleton não conseguiria resolvê-lo.
+builder.Services.AddDbContextFactory<GameHubDbContext>((sp, options) =>
+    options.UseSqlServer(connectionString)
+           .AddInterceptors(sp.GetRequiredService<AuditoriaInterceptor>()),
+    lifetime: ServiceLifetime.Scoped);
+
 // Repositórios da loja (Injeção de Dependência).
 // Scoped = uma instância por requisição/página.
 builder.Services.AddScoped<IJogoRepository, JogoRepository>();
@@ -99,6 +117,23 @@ builder.Services.AddScoped<IFreteService, FreteTabelaService>();
 
 // Vender pra loja: workflow de aprovação (Scoped, usa o DbContext).
 builder.Services.AddScoped<IPropostaVendaService, PropostaVendaService>();
+
+// LGPD (Fase 11): exportar/anonimizar os dados do titular que vivem na LOJA. O Identity
+// só conhece o AspNetUsers — este serviço cobre Cliente, endereços, pedidos e notas.
+builder.Services.AddScoped<IDadosPessoaisService, DadosPessoaisService>();
+
+// LGPD (Fase 11): consentimento VERSIONADO — guarda qual versão do termo cada pessoa
+// aceitou, com data, IP e navegador (o ônus de provar o consentimento é do controlador).
+builder.Services.AddScoped<IConsentimentoService, ConsentimentoService>();
+
+// RATE LIMITING (Fase 11 · P5): limites por endpoint. NÃO global — o WebSocket do Blazor
+// (/_blazor) seria estrangulado e a interface travaria em uso normal.
+builder.Services.AddRateLimiter(options => options.AddLimitesGameHub());
+
+// AUTORIZAÇÃO (Fase 11 · P4): políticas nomeadas + o handler da classificação indicativa.
+// O handler é Scoped porque recebe um ILogger; ele não guarda estado entre chamadas.
+builder.Services.AddAuthorization(options => options.AddPoliticasGameHub());
+builder.Services.AddScoped<IAuthorizationHandler, ClassificacaoIndicativaHandler>();
 
 // Dashboard do admin: consultas agregadas (Scoped, usa o DbContext).
 builder.Services.AddScoped<IDashboardService, DashboardService>();
@@ -259,21 +294,34 @@ await using (var scope = app.Services.CreateAsyncScope())
     }
 }
 
-// Configure the HTTP request pipeline.
+// ---- Pipeline HTTP ----
+// A ORDEM AQUI É A EXECUÇÃO: cada middleware envolve os seguintes. Headers de segurança vêm
+// cedo (para valerem em toda resposta, inclusive nas de erro); o tratamento de erro tem de
+// estar ANTES do que pode falhar, senão não captura nada.
+app.UseHeadersSeguranca();
+
 if (app.Environment.IsDevelopment())
 {
     app.UseMigrationsEndPoint();
+    // Em DEV mantemos a página de detalhe do erro (stack trace) — é ela que nos deu o
+    // diagnóstico dos bugs do DbContext e do bool na query string.
+    app.UseDeveloperExceptionPage();
 }
 else
 {
     app.UseExceptionHandler("/Error", createScopeForErrors: true);
-    // The default HSTS value is 30 days. You may want to change this for production scenarios, see https://aka.ms/aspnetcore-hsts.
+    // HSTS: diz ao navegador "deste domínio, só aceite HTTPS" — por 30 dias, mesmo que o
+    // usuário digite http://. Fecha a janela do ataque de downgrade na primeira requisição.
     app.UseHsts();
 }
 app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages: true);
 app.UseHttpsRedirection();
 
 app.UseAntiforgery();
+
+// Rate limiter DEPOIS da autenticação de cookie (que roda dentro do MapRazorComponents):
+// assim a chave do limite pode ser o usuário logado, e não só o IP.
+app.UseRateLimiter();
 
 app.MapStaticAssets();
 app.MapRazorComponents<App>()
@@ -290,6 +338,12 @@ app.MapNotaFiscalEndpoints();
 
 // Pacote mensal da contabilidade (só Admin).
 app.MapContabilidadeEndpoints();
+
+// Aceite dos termos (LGPD · Fase 11): POST de formulário, para o IP entrar na prova.
+app.MapConsentimentoEndpoints();
+
+// Data de nascimento (Fase 11 · P4): POST, porque precisa RENOVAR O COOKIE (claim novo).
+app.MapPerfilEndpoints();
 
 // Hub do chat de trocas (SignalR).
 app.MapHub<TrocaChatHub>("/hubs/troca-chat");

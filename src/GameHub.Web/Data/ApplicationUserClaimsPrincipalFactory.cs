@@ -33,6 +33,18 @@ public class ApplicationUserClaimsPrincipalFactory : UserClaimsPrincipalFactory<
             : $"{user.Nome} {user.Sobrenome}".Trim();
 
         identity.AddClaim(new Claim("nome", nomeExibicao));
+
+        // Data de nascimento no CRACHÁ (claim), não consultada no banco a cada verificação.
+        // A policy de classificação indicativa roda em toda listagem e em todo detalhe de
+        // jogo: uma ida ao banco por jogo por página seria caro. O claim vive no cookie e
+        // é renovado no login — e a data de nascimento é um dado que não muda.
+        if (user.DataNascimento is DateOnly nascimento)
+        {
+            identity.AddClaim(new Claim(
+                Autorizacao.ClassificacaoIndicativaHandler.ClaimDataNascimento,
+                nascimento.ToString("yyyy-MM-dd")));
+        }
+
         return identity;
     }
 }

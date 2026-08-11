@@ -4,7 +4,11 @@
 @using System.Security.Claims
 @using GameHub.Domain.Enums
 @using GameHub.Domain.Services
+@using Microsoft.AspNetCore.Identity
+@using GameHub.Web.Data
+@using GameHub.Web.Autorizacao
 @inject IClienteService ClienteService
+@inject UserManager<ApplicationUser> UserManager
 
 <PageTitle>Dados Fiscais — GameHub</PageTitle>
 
@@ -47,6 +51,57 @@
             — agora dá pra <a href="meus-pedidos">reemitir notas rejeitadas</a>.
         </p>
     }
+
+    @* ---- DATA DE NASCIMENTO (classificação indicativa · Fase 11 · P4) ----
+       Formulário POST separado, e não o botão interativo acima: salvar a data precisa
+       RENOVAR O COOKIE de autenticação (o claim é um snapshot do login), e cookie só se
+       escreve numa resposta HTTP — o circuito do Blazor não tem uma. *@
+    <hr style="margin:2rem 0; border-color:var(--pg-border);" />
+
+    <h2 class="gold" style="font-size:1.1rem;">Data de nascimento</h2>
+    <p class="pg-muted">
+        Usamos para respeitar a <strong>classificação indicativa</strong> dos jogos —
+        títulos com restrição de idade só ficam disponíveis para quem atingiu a faixa.
+    </p>
+
+    @if (nascimentoSalvo)
+    {
+        <div class="pg-toast">✅ Data de nascimento salva.</div>
+    }
+    @if (erroNascimento)
+    {
+        <div class="pg-toast">⚠️ Data inválida. Confira o dia, mês e ano.</div>
+    }
+
+    <form action="minha-conta/nascimento" method="post">
+        <AntiforgeryToken />
+        <input class="pg-input" type="date" name="dataNascimento" value="@dataNascimentoAtual" required />
+        <button class="pg-btn pg-btn-outline" style="margin-top:.75rem;" type="submit">
+            Salvar data de nascimento
+        </button>
+    </form>
+
+    @* A mensagem só aparece quando DIZ ALGO ÚTIL.
+       Para quem já passou da faixa máxima (18), não existe restrição — informar "títulos até
+       31 anos estão liberados" seria ruído: um número que não corresponde a nada no catálogo.
+       Para menores, sim: saber QUAIS faixas estão bloqueadas é acionável. *@
+    @if (idadeAtual is int idade)
+    {
+        <p class="pg-muted" style="margin-top:.75rem;">
+            @if (FaixasBloqueadas(idade) is { Count: > 0 } bloqueadas)
+            {
+                <text>
+                    Você tem <strong>@idade anos</strong> — títulos
+                    <strong>@string.Join(", ", bloqueadas.Select(f => $"{f}+"))</strong>
+                    ficam indisponíveis.
+                </text>
+            }
+            else
+            {
+                <text>Data cadastrada — <strong>nenhum título</strong> tem restrição de idade para você.</text>
+            }
+        </p>
+    }
 </div>
 
 @code {
@@ -60,6 +115,13 @@
     private string? cpfCnpjAtual;
     private string? mensagem;
     private bool ocupado;
+    private string? dataNascimentoAtual;
+    private int? idadeAtual;
+
+    // Lidos da URL: o endpoint redireciona com ?nascimentoSalvo=1 ou ?erroNascimento=1.
+    // (É como um POST tradicional devolve o resultado sem repostar ao recarregar.)
+    [SupplyParameterFromQuery] private bool nascimentoSalvo { get; set; }
+    [SupplyParameterFromQuery] private bool erroNascimento { get; set; }
 
     protected override async Task OnInitializedAsync()
     {
@@ -67,6 +129,14 @@
         userId = user?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         nome = user?.Identity?.Name;
         if (string.IsNullOrEmpty(userId)) return;
+
+        var appUser = await UserManager.FindByIdAsync(userId);
+        if (appUser?.DataNascimento is DateOnly nascimento)
+        {
+            dataNascimentoAtual = nascimento.ToString("yyyy-MM-dd");   // formato do <input type=date>
+            idadeAtual = ClassificacaoIndicativaHandler.CalcularIdade(
+                nascimento, DateOnly.FromDateTime(DateTime.Today));
+        }
 
         var cliente = await ClienteService.ObterAsync(userId);
         if (cliente is not null)
@@ -77,6 +147,18 @@
             telefone = cliente.Telefone ?? "";
         }
     }
+
+    /// <summary>
+    /// Faixas do catálogo que a idade NÃO alcança. Derivadas do próprio enum — nada de
+    /// "18" escrito à mão: se o Ministério da Justiça criar uma faixa nova, basta
+    /// acrescentar ao enum e esta tela acompanha.
+    /// </summary>
+    private static List<int> FaixasBloqueadas(int idade) =>
+        Enum.GetValues<ClassificacaoIndicativa>()
+            .Select(c => (int)c)
+            .Where(faixa => faixa > idade)
+            .OrderBy(faixa => faixa)
+            .ToList();
 
     private async Task Salvar()
     {

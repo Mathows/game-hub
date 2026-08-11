@@ -49,8 +49,19 @@ public class RecaptchaGoogleService : IRecaptchaService
             var dto = await resposta.Content.ReadFromJsonAsync<RespostaSiteverify>();
 
             var aprovado = dto is { Success: true } && dto.Score >= NotaMinima;
-            _log.LogInformation("reCAPTCHA: success={Success} score={Score} → {Resultado}",
-                dto?.Success, dto?.Score, aprovado ? "aprovado" : "reprovado");
+
+            // Logar o MOTIVO, não só o resultado: quando success=false o Google diz
+            // exatamente o que houve em "error-codes" (timeout-or-duplicate = token já
+            // usado; invalid-input-secret = chave errada; browser-error = domínio não
+            // autorizado). Sem isso, "reprovado" é um beco sem saída no diagnóstico.
+            var motivos = dto?.ErrorCodes is { Length: > 0 }
+                ? string.Join(", ", dto.ErrorCodes)
+                : "(nenhum)";
+            _log.LogInformation(
+                "reCAPTCHA: success={Success} score={Score} action={Action} hostname={Hostname} " +
+                "error-codes={Motivos} → {Resultado}",
+                dto?.Success, dto?.Score, dto?.Action, dto?.Hostname, motivos,
+                aprovado ? "aprovado" : "reprovado");
             return aprovado;
         }
         catch (Exception ex)
@@ -68,6 +79,8 @@ public class RecaptchaGoogleService : IRecaptchaService
         [JsonPropertyName("success")] public bool Success { get; set; }
         [JsonPropertyName("score")] public double Score { get; set; }
         [JsonPropertyName("action")] public string? Action { get; set; }
+        [JsonPropertyName("hostname")] public string? Hostname { get; set; }
+        [JsonPropertyName("error-codes")] public string[]? ErrorCodes { get; set; }
     }
 }
 

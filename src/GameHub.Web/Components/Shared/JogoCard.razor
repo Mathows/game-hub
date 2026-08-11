@@ -19,6 +19,14 @@
             @* Plataforma fica à esquerda; a promoção vai pro canto DIREITO (não se sobrepõem). *@
             <span class="pg-badge" style="left:auto;right:.5rem;background:#b32121;color:#fff;border-color:#b32121;">PROMOÇÃO</span>
         }
+        @* Selo de classificação indicativa (canto inferior direito), nas cores oficiais.
+           Aqui é só INFORMATIVO — quem decide se pode comprar é a policy, na página do jogo.
+           Mostrar a faixa no catálogo é o que qualquer loja de games faz: a pessoa já sabe
+           antes de clicar. *@
+        <span class="pg-classificacao pg-cl-@((int)Jogo.Classificacao)"
+              title="@RotuloClassificacao">
+            @(Jogo.Classificacao == ClassificacaoIndicativa.Livre ? "L" : ((int)Jogo.Classificacao).ToString())
+        </span>
     </a>
     <div class="pg-card-body">
         <div class="pg-card-title">@Jogo.Titulo</div>
@@ -48,4 +56,8 @@
 
     // Promoção vigente (o repositório já traz só as ativas via filtered include).
     private Promocao? promocao => Jogo.PromocaoVigente(DateTime.Now);
+
+    private string RotuloClassificacao => Jogo.Classificacao == ClassificacaoIndicativa.Livre
+        ? "Livre para todos os públicos"
+        : $"Não recomendado para menores de {(int)Jogo.Classificacao} anos";
 }

@@ -4,6 +4,7 @@ using GameHub.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace GameHub.Infrastructure.Migrations
 {
     [DbContext(typeof(GameHubDbContext))]
-    partial class GameHubDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260810141545_AddConsentimentoVersionado")]
+    partial class AddConsentimentoVersionado
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -498,9 +501,6 @@ namespace GameHub.Infrastructure.Migrations
                     b.Property<string>("AtualizadoPor")
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<int>("Classificacao")
-                        .HasColumnType("int");
-
                     b.Property<int>("Condicao")
                         .HasColumnType("int");
 
@@ -557,7 +557,6 @@ namespace GameHub.Infrastructure.Migrations
                         new
                         {
                             Id = 1,
-                            Classificacao = 0,
                             Condicao = 2,
                             CriadoEm = new DateTime(2026, 6, 24, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             CriadoPor = "seed",
@@ -573,7 +572,6 @@ namespace GameHub.Infrastructure.Migrations
                         new
                         {
                             Id = 2,
-                            Classificacao = 0,
                             Condicao = 2,
                             CriadoEm = new DateTime(2026, 6, 24, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             CriadoPor = "seed",
@@ -589,7 +587,6 @@ namespace GameHub.Infrastructure.Migrations
                         new
                         {
                             Id = 3,
-                            Classificacao = 0,
                             Condicao = 1,
                             CriadoEm = new DateTime(2026, 6, 24, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             CriadoPor = "seed",

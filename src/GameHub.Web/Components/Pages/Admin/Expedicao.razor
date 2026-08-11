@@ -7,6 +7,9 @@
 @using GameHub.Infrastructure.Data
 @inject GameHubDbContext Db
 @inject CalculadoraRastreio Calculadora
+@* Despachar pedidos é uma atribuição própria: hoje só Admin, amanhã talvez um Operador.
+   Soma-se à policy da pasta (Administrar): as duas precisam passar. *@
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Policy = GameHub.Web.Autorizacao.Policies.PodeDespachar)]
 
 <PageTitle>Expedição — Admin GameHub</PageTitle>
 
