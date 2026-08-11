@@ -278,3 +278,18 @@ h1, h2, h3 { color: var(--pg-text); font-family: var(--pg-font-display); letter-
     body { background: #fff !important; }
     .pg-etiqueta { border-color: #000; page-break-inside: avoid; }
 }
+
+/* ---------- Faixa de re-aceite do termo (Fase 11 · LGPD) ---------- */
+.pg-aviso-termo {
+    background: linear-gradient(90deg, rgba(230,178,58,.14), rgba(230,178,58,.06));
+    border-bottom: 1px solid var(--pg-gold);
+    padding: .85rem 1rem;
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 1rem; flex-wrap: wrap;
+    font-size: .9rem;
+}
+.pg-aviso-termo .pg-btn { padding: .4rem 1rem; font-size: .75rem; }
+.pg-aviso-termo form { margin: 0; }
+/* "Depois": checkbox escondido + regra de irmão adjacente esconde a faixa (sem JS). */
+.pg-termo-dispensar { display: none; }
+.pg-termo-dispensar:checked + .pg-aviso-termo { display: none; }

@@ -1,0 +1,63 @@
+@using System.Security.Claims
+@using GameHub.Domain.Entities
+@using GameHub.Domain.Interfaces
+@inject IConsentimentoService Consentimento
+
+@* Faixa de RE-ACEITE. É esta peça que faz o versionamento valer para algo: sem ela, o
+   termo 1.1 seria publicado e ninguém aceitaria — a loja teria consentimento apenas
+   para a versão antiga, que é o mesmo que não ter para a nova.
+
+   POR QUE É UM FORM SSR, e não um botão interativo:
+   o aceite precisa gravar o IP como prova, e em Blazor interativo (circuito SignalR) o
+   IHttpContextAccessor.HttpContext é NULL — o IP viria vazio. Um POST tradicional sempre
+   tem requisição HTTP, logo sempre tem IP. Aqui a prova manda no desenho técnico.
+
+   Não bloqueia a navegação de propósito: barrar o uso do site inteiro seria coagir o
+   aceite, e consentimento obtido sob coação não é livre (LGPD art. 8º). *@
+
+@if (precisaAceitar && termo is not null)
+{
+    @* "Depois" some a faixa sem JavaScript nem circuito: o mesmo truque do checkbox
+       usado no menu hambúrguer. Ao navegar, o DOM novo volta desmarcado — e a faixa
+       reaparece, porque o consentimento continua não tendo sido dado. *@
+    <input type="checkbox" id="pg-termo-dispensar" class="pg-termo-dispensar" />
+
+    <div class="pg-aviso-termo">
+        <div>
+            <strong>Atualizamos nossos termos (versão @termo.Versao).</strong>
+            @if (!string.IsNullOrWhiteSpace(termo.ResumoDasMudancas))
+            {
+                <span class="pg-muted"> O que mudou: @termo.ResumoDasMudancas</span>
+            }
+            <a href="termos" target="_blank" style="margin-left:.5rem;">ler o termo</a>
+        </div>
+        <div style="display:flex; gap:.5rem; flex-shrink:0; align-items:center;">
+            <form action="consentimento/aceitar" method="post">
+                <AntiforgeryToken />
+                <input type="hidden" name="termoId" value="@termo.Id" />
+                <button type="submit" class="pg-btn pg-btn-gold">Aceitar</button>
+            </form>
+            <label for="pg-termo-dispensar" class="pg-btn pg-btn-ghost" style="margin:0;">Depois</label>
+        </div>
+    </div>
+}
+
+@code {
+    [CascadingParameter] private Task<AuthenticationState>? AuthState { get; set; }
+
+    private TermoDeUso? termo;
+    private bool precisaAceitar;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (AuthState is null) return;
+        var user = (await AuthState).User;
+        if (user.Identity?.IsAuthenticated != true) return;
+
+        var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (userId is null) return;
+
+        precisaAceitar = await Consentimento.PrecisaAceitarAsync(userId);
+        if (precisaAceitar) termo = await Consentimento.ObterVigenteAsync();
+    }
+}

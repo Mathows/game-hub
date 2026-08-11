@@ -52,7 +52,8 @@ public record DadosPessoaisExportados(
     IReadOnlyList<PedidoExportado> Pedidos,
     IReadOnlyList<AluguelExportado> Alugueis,
     IReadOnlyList<TrocaExportada> Trocas,
-    IReadOnlyList<PropostaExportada> PropostasDeVenda);
+    IReadOnlyList<PropostaExportada> PropostasDeVenda,
+    IReadOnlyList<ConsentimentoExportado> Consentimentos);
 
 public record ClienteExportado(
     string Nome, string? Telefone, string? CpfCnpj, string TipoPessoa, DateTime DataCadastro);
@@ -75,6 +76,11 @@ public record AluguelExportado(
 
 public record TrocaExportada(
     int Numero, string JogoOferecido, string JogoDesejado, DateTime Data, string Status);
+
+/// <summary>O aceite dos termos também é dado do titular — e ele tem direito de saber
+/// exatamente o que aceitou, quando e de onde.</summary>
+public record ConsentimentoExportado(
+    string VersaoDoTermo, string Titulo, DateTime AceitoEm, string? IpOrigem, string? Navegador);
 
 public record PropostaExportada(
     int Numero, string Jogo, string Condicao, decimal ValorPedido,

@@ -30,12 +30,22 @@ public class DadosPessoaisService : IDadosPessoaisService
         var cliente = await _context.Clientes.AsNoTracking()
             .FirstOrDefaultAsync(c => c.ApplicationUserId == applicationUserId);
 
+        // Os aceites são ligados ao USUÁRIO (não ao Cliente): quem se cadastrou e nunca
+        // comprou não tem Cliente, mas tem consentimento registrado — e direito a ele.
+        var consentimentos = await _context.AceitesTermo.AsNoTracking()
+            .Where(a => a.ApplicationUserId == applicationUserId)
+            .Include(a => a.Termo)
+            .OrderByDescending(a => a.AceitoEm)
+            .Select(a => new ConsentimentoExportado(
+                a.Termo!.Versao, a.Termo.Titulo, a.AceitoEm, a.IpOrigem, a.UserAgent))
+            .ToListAsync();
+
         // Titular sem cadastro de cliente: devolve o pacote vazio, mas VÁLIDO.
         // (Quem só criou login e nunca comprou tem direito à resposta igualmente.)
         if (cliente is null)
         {
             return new DadosPessoaisExportados(
-                DateTime.Now, aviso, null, [], [], [], [], []);
+                DateTime.Now, aviso, null, [], [], [], [], [], consentimentos);
         }
 
         var enderecos = await _context.Enderecos.AsNoTracking()
@@ -115,7 +125,7 @@ public class DadosPessoaisService : IDadosPessoaisService
             new ClienteExportado(
                 cliente.Nome, cliente.Telefone, cliente.CpfCnpj,
                 cliente.TipoPessoa.ToString(), cliente.DataCadastro),
-            enderecos, pedidos, alugueis, trocas, propostas);
+            enderecos, pedidos, alugueis, trocas, propostas, consentimentos);
     }
 
     // =======================================================================

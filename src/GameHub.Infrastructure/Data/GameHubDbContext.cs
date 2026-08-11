@@ -42,6 +42,10 @@ public class GameHubDbContext : DbContext
     // dado pessoal — guarda a DATA e o QUE foi feito (o ônus da prova é de quem trata).
     public DbSet<RegistroAnonimizacao> RegistrosAnonimizacao => Set<RegistroAnonimizacao>();
 
+    // LGPD (Fase 11): consentimento versionado — o texto aceito e a prova do aceite.
+    public DbSet<TermoDeUso> TermosDeUso => Set<TermoDeUso>();
+    public DbSet<AceiteTermo> AceitesTermo => Set<AceiteTermo>();
+
     // Aqui refinamos o mapeamento (tamanhos, precisão, relacionamentos e dados iniciais).
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -164,6 +168,36 @@ public class GameHubDbContext : DbContext
             pv.HasOne(x => x.Cliente).WithMany().HasForeignKey(x => x.ClienteId).OnDelete(DeleteBehavior.Restrict);
             pv.HasOne(x => x.Jogo).WithMany().HasForeignKey(x => x.JogoId).OnDelete(DeleteBehavior.Restrict);
             pv.HasIndex(x => x.Status).HasDatabaseName("IX_PropostaVenda_Status");   // fila do admin
+        });
+
+        // ---- Consentimento versionado (Fase 11 · LGPD) ----
+        modelBuilder.Entity<TermoDeUso>(t =>
+        {
+            t.Property(x => x.Versao).HasMaxLength(10).IsRequired();
+            t.Property(x => x.Titulo).HasMaxLength(150).IsRequired();
+            t.Property(x => x.ResumoDasMudancas).HasMaxLength(500);
+            // Duas versões "1.0" seriam a ruína da prova: qual delas a pessoa aceitou?
+            t.HasIndex(x => x.Versao).IsUnique().HasDatabaseName("UX_TermoDeUso_Versao");
+            // Índice filtrado: só existe UMA linha vigente, e o banco garante isso.
+            // Sem ele, um bug no admin poderia publicar duas versões "em vigor" ao mesmo tempo.
+            t.HasIndex(x => x.Vigente)
+                .IsUnique()
+                .HasFilter("[Vigente] = 1")
+                .HasDatabaseName("UX_TermoDeUso_Vigente");
+        });
+
+        modelBuilder.Entity<AceiteTermo>(a =>
+        {
+            a.Property(x => x.ApplicationUserId).HasMaxLength(450).IsRequired();
+            a.Property(x => x.IpOrigem).HasMaxLength(45);        // 45 = IPv6 completo
+            a.Property(x => x.UserAgent).HasMaxLength(400);
+            a.HasOne(x => x.Termo).WithMany(t => t.Aceites)
+                .HasForeignKey(x => x.TermoDeUsoId)
+                .OnDelete(DeleteBehavior.Restrict);   // termo aceito NUNCA se apaga
+            // Um aceite por pessoa por versão (a idempotência garantida pelo SCHEMA,
+            // não só pelo IF do serviço — mesma lição do §5.2).
+            a.HasIndex(x => new { x.ApplicationUserId, x.TermoDeUsoId })
+                .IsUnique().HasDatabaseName("UX_AceiteTermo_Usuario_Termo");
         });
 
         // ---- Cupom de desconto ----

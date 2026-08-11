@@ -77,6 +77,21 @@ builder.Services.AddDbContext<GameHubDbContext>((sp, options) =>
     options.UseSqlServer(connectionString)
            .AddInterceptors(sp.GetRequiredService<AuditoriaInterceptor>()));
 
+// FÁBRICA de DbContext — para componentes que rodam no LAYOUT (em toda página).
+//
+// O PROBLEMA que isto resolve: o DbContext Scoped é UM por requisição/circuito, e ele NÃO
+// suporta duas operações ao mesmo tempo. No Blazor, componentes renderizam de forma
+// assíncrona: a página consulta jogos enquanto o layout consulta o termo vigente — mesma
+// instância, duas queries simultâneas → "A second operation was started on this context".
+//
+// Com a fábrica, quem precisa consultar CRIA e DESCARTA seu próprio contexto: cada operação
+// fica isolada. Lifetime Scoped (não o Singleton padrão) porque o interceptor de auditoria
+// que configuramos acima é Scoped — um factory singleton não conseguiria resolvê-lo.
+builder.Services.AddDbContextFactory<GameHubDbContext>((sp, options) =>
+    options.UseSqlServer(connectionString)
+           .AddInterceptors(sp.GetRequiredService<AuditoriaInterceptor>()),
+    lifetime: ServiceLifetime.Scoped);
+
 // Repositórios da loja (Injeção de Dependência).
 // Scoped = uma instância por requisição/página.
 builder.Services.AddScoped<IJogoRepository, JogoRepository>();
@@ -103,6 +118,10 @@ builder.Services.AddScoped<IPropostaVendaService, PropostaVendaService>();
 // LGPD (Fase 11): exportar/anonimizar os dados do titular que vivem na LOJA. O Identity
 // só conhece o AspNetUsers — este serviço cobre Cliente, endereços, pedidos e notas.
 builder.Services.AddScoped<IDadosPessoaisService, DadosPessoaisService>();
+
+// LGPD (Fase 11): consentimento VERSIONADO — guarda qual versão do termo cada pessoa
+// aceitou, com data, IP e navegador (o ônus de provar o consentimento é do controlador).
+builder.Services.AddScoped<IConsentimentoService, ConsentimentoService>();
 
 // Dashboard do admin: consultas agregadas (Scoped, usa o DbContext).
 builder.Services.AddScoped<IDashboardService, DashboardService>();
@@ -294,6 +313,9 @@ app.MapNotaFiscalEndpoints();
 
 // Pacote mensal da contabilidade (só Admin).
 app.MapContabilidadeEndpoints();
+
+// Aceite dos termos (LGPD · Fase 11): POST de formulário, para o IP entrar na prova.
+app.MapConsentimentoEndpoints();
 
 // Hub do chat de trocas (SignalR).
 app.MapHub<TrocaChatHub>("/hubs/troca-chat");
