@@ -14,6 +14,7 @@ using GameHub.Domain.Services;
 using GameHub.Web.Services;
 using GameHub.Web.Hubs;
 using GameHub.Web.Autorizacao;
+using GameHub.Web.Seguranca;
 using Microsoft.AspNetCore.Authorization;
 using NHibernate;
 
@@ -124,6 +125,10 @@ builder.Services.AddScoped<IDadosPessoaisService, DadosPessoaisService>();
 // LGPD (Fase 11): consentimento VERSIONADO — guarda qual versão do termo cada pessoa
 // aceitou, com data, IP e navegador (o ônus de provar o consentimento é do controlador).
 builder.Services.AddScoped<IConsentimentoService, ConsentimentoService>();
+
+// RATE LIMITING (Fase 11 · P5): limites por endpoint. NÃO global — o WebSocket do Blazor
+// (/_blazor) seria estrangulado e a interface travaria em uso normal.
+builder.Services.AddRateLimiter(options => options.AddLimitesGameHub());
 
 // AUTORIZAÇÃO (Fase 11 · P4): políticas nomeadas + o handler da classificação indicativa.
 // O handler é Scoped porque recebe um ILogger; ele não guarda estado entre chamadas.
@@ -289,21 +294,34 @@ await using (var scope = app.Services.CreateAsyncScope())
     }
 }
 
-// Configure the HTTP request pipeline.
+// ---- Pipeline HTTP ----
+// A ORDEM AQUI É A EXECUÇÃO: cada middleware envolve os seguintes. Headers de segurança vêm
+// cedo (para valerem em toda resposta, inclusive nas de erro); o tratamento de erro tem de
+// estar ANTES do que pode falhar, senão não captura nada.
+app.UseHeadersSeguranca();
+
 if (app.Environment.IsDevelopment())
 {
     app.UseMigrationsEndPoint();
+    // Em DEV mantemos a página de detalhe do erro (stack trace) — é ela que nos deu o
+    // diagnóstico dos bugs do DbContext e do bool na query string.
+    app.UseDeveloperExceptionPage();
 }
 else
 {
     app.UseExceptionHandler("/Error", createScopeForErrors: true);
-    // The default HSTS value is 30 days. You may want to change this for production scenarios, see https://aka.ms/aspnetcore-hsts.
+    // HSTS: diz ao navegador "deste domínio, só aceite HTTPS" — por 30 dias, mesmo que o
+    // usuário digite http://. Fecha a janela do ataque de downgrade na primeira requisição.
     app.UseHsts();
 }
 app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages: true);
 app.UseHttpsRedirection();
 
 app.UseAntiforgery();
+
+// Rate limiter DEPOIS da autenticação de cookie (que roda dentro do MapRazorComponents):
+// assim a chave do limite pode ser o usuário logado, e não só o IP.
+app.UseRateLimiter();
 
 app.MapStaticAssets();
 app.MapRazorComponents<App>()

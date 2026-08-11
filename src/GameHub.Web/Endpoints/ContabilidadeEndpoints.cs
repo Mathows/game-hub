@@ -1,4 +1,5 @@
 using GameHub.Domain.Interfaces;
+using GameHub.Web.Seguranca;
 
 namespace GameHub.Web.Endpoints;
 
@@ -23,6 +24,9 @@ public static class ContabilidadeEndpoints
         })
         // Policy nomeada em vez de RequireRole solto: a regra de "quem lida com fiscal"
         // fica num lugar só (Autorizacao/Policies.cs), igual à tela de contabilidade.
-        .RequireAuthorization(GameHub.Web.Autorizacao.Policies.PodeEmitirFiscal);
+        .RequireAuthorization(GameHub.Web.Autorizacao.Policies.PodeEmitirFiscal)
+        // O pacote é um ZIP gerado na hora (custa CPU e memória): limitar evita que um
+        // laço acidental — ou intencional — derrube o servidor.
+        .RequireRateLimiting(RateLimiting.Downloads);
     }
 }
